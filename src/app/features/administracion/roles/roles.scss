@@ -1,0 +1,329 @@
+@use '../../../shared/ag-grid/tabla-header';
+@use '../../../shared/ag-grid/tabla-skeleton';
+@use '../../../shared/tarjetas/tarjetas';
+
+:host {
+  display: block;
+}
+
+.roles-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: page-in 0.3s ease-out;
+
+  &__header {
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      color: var(--brand-ink);
+    }
+
+    p {
+      margin: 0;
+      color: var(--brand-muted);
+      font-size: 0.92rem;
+    }
+  }
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--brand-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+
+  h2 {
+    margin: 0 0 1.1rem;
+    font-size: 1.05rem;
+    color: var(--brand-ink);
+  }
+}
+
+.asignar-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+
+  > .btn {
+    height: 46px;
+  }
+}
+
+label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--brand-ink);
+  letter-spacing: 0.02em;
+}
+
+.combobox {
+  position: relative;
+  flex: 1 1 320px;
+  min-width: 240px;
+
+  input {
+    width: 100%;
+    height: 46px;
+    padding: 0 0.9rem;
+    border: 1.5px solid var(--brand-border);
+    border-radius: 12px;
+    background: #f4f6f5;
+    font-size: 0.92rem;
+    color: var(--brand-ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px var(--brand-primary-soft);
+    }
+
+    &::placeholder {
+      color: #9aa8a1;
+    }
+  }
+
+  &__dropdown {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.4rem;
+    list-style: none;
+    background: #fff;
+    border: 1px solid var(--brand-border);
+    border-radius: 12px;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
+
+    li {
+      display: block;
+    }
+
+    button {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+
+      &:hover {
+        background: var(--brand-primary-soft);
+      }
+    }
+  }
+
+  &__nombre {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--brand-ink);
+  }
+
+  &__meta {
+    font-size: 0.76rem;
+    color: var(--brand-muted);
+  }
+
+  &__hint {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.82rem;
+    color: var(--brand-muted);
+  }
+}
+
+.rol-select {
+  flex: 0 0 200px;
+
+  select {
+    width: 100%;
+    height: 46px;
+    padding: 0 0.75rem;
+    border: 1.5px solid var(--brand-border);
+    border-radius: 12px;
+    background: #f4f6f5;
+    font-size: 0.92rem;
+    color: var(--brand-ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px var(--brand-primary-soft);
+    }
+  }
+}
+
+.hint {
+  margin: 0;
+  color: var(--brand-muted);
+  font-size: 0.88rem;
+}
+
+// --- Card de usuario: dos líneas legibles en vez de cuatro datos con etiqueta ---
+.linea {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  gap: 0.3rem 0.45rem;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--brand-ink);
+
+  &--puesto {
+    color: var(--brand-muted);
+  }
+
+  &--adscripcion {
+    svg:first-child {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      color: var(--brand-muted);
+    }
+  }
+
+  &__sep {
+    color: #c4c7c9;
+  }
+
+  &__rfc {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+  }
+
+  &__flecha {
+    width: 13px;
+    height: 13px;
+    color: #b8bcbf;
+  }
+
+  &__vacio {
+    color: var(--brand-muted);
+    font-style: italic;
+  }
+}
+
+// --- "Asignar rol" (formulario de acción) vs. "Roles asignados" (lista) ---
+.seccion-titulo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+
+  h2 {
+    margin: 0 0 0.2rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--brand-muted);
+  }
+
+  &__icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #f1f0f1;
+    color: var(--brand-muted);
+
+    svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    &--asignar {
+      background: var(--brand-primary);
+      color: #fff;
+    }
+  }
+}
+
+.card--asignar {
+  border-color: color-mix(in srgb, var(--brand-primary) 25%, var(--brand-border));
+  border-left: 5px solid var(--brand-primary);
+  background: linear-gradient(180deg, var(--brand-primary-soft), #fff 70%);
+
+  .seccion-titulo {
+    margin-bottom: 1.2rem;
+  }
+
+  input,
+  select {
+    background: #fff;
+  }
+}
+
+.card--lista .tabla-header {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #f1eff0;
+}
+
+.paso {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 0.3rem;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.combobox__rol {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .asignar-form {
+    flex-direction: column;
+    align-items: stretch;
+
+    > .btn {
+      width: 100%;
+    }
+  }
+
+  .rol-select {
+    flex-basis: auto;
+  }
+}

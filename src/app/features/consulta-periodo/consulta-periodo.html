@@ -1,0 +1,76 @@
+<section class="page">
+  <header class="page__header">
+    <h1>Movimientos por periodo</h1>
+    <p>Consulta los movimientos de personal por quincenas, tipo de movimiento y nómina.</p>
+  </header>
+
+  <div class="card">
+    <div class="filtros">
+      <label class="campo">
+        <span>Año</span>
+        <input type="text" maxlength="2" [ngModel]="anio()" (ngModelChange)="anio.set($event)" />
+      </label>
+      <label class="campo">
+        <span>Quincena inicial</span>
+        <select [ngModel]="qnaInicial()" (ngModelChange)="qnaInicial.set(+$event)">
+          @for (q of quincenas; track q.numero) {
+            <option [ngValue]="q.numero">{{ q.numero }} · {{ q.nombre }}</option>
+          }
+        </select>
+      </label>
+      <label class="campo">
+        <span>Quincena final</span>
+        <select [ngModel]="qnaFinal()" (ngModelChange)="qnaFinal.set(+$event)">
+          @for (q of quincenas; track q.numero) {
+            <option [ngValue]="q.numero">{{ q.numero }} · {{ q.nombre }}</option>
+          }
+        </select>
+      </label>
+      <label class="campo">
+        <span>Tipo de movimiento</span>
+        <select [ngModel]="tipoMov()" (ngModelChange)="tipoMov.set($event)">
+          <option value="">Todos</option>
+          <option value="A">Altas</option>
+          <option value="B">Bajas</option>
+          <option value="P">Promociones</option>
+          <option value="T">Transferencias</option>
+          <option value="L">Licencias</option>
+        </select>
+      </label>
+      <label class="campo">
+        <span>Nómina</span>
+        <select [ngModel]="nomina()" (ngModelChange)="nomina.set($event)">
+          <option value="">Todas</option>
+          <option value="CENTRAL">Central</option>
+          <option value="HONORARIOS">Honorarios</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="acciones">
+      <button type="button" class="btn btn--primary" [disabled]="cargando()" (click)="consultar()">
+        @if (cargando()) {
+          <span class="spinner" aria-hidden="true"></span>
+        }
+        <span>Consultar</span>
+      </button>
+      <button type="button" class="btn btn--outline" [disabled]="exportando() || !consultado()" (click)="exportar()">
+        <span>{{ exportando() ? 'Generando…' : 'Exportar a Excel' }}</span>
+      </button>
+    </div>
+  </div>
+
+  @if (consultado()) {
+    <div class="card">
+      <p class="resumen"><strong>{{ total() }}</strong> {{ total() === 1 ? 'movimiento' : 'movimientos' }}</p>
+      <app-tabla-movimientos [movimientos]="datos()" />
+      <app-paginador
+        [total]="total()"
+        [pagina]="pagina()"
+        [tamano]="tamano()"
+        (paginaChange)="consultar($event)"
+        (tamanoChange)="cambiarTamano($event)"
+      />
+    </div>
+  }
+</section>

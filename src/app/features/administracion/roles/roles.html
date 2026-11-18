@@ -1,0 +1,218 @@
+<section class="roles-page">
+  <header class="roles-page__header">
+    <h1>Roles de usuario</h1>
+    <p>
+      Asigna un rol a cada persona para controlar lo que puede ver en el sistema. Quien no tenga un
+      rol asignado tiene automáticamente el rol <strong>Usuario</strong>.
+    </p>
+  </header>
+
+  <div class="card card--asignar">
+    <div class="seccion-titulo">
+      <span class="seccion-titulo__icono seccion-titulo__icono--asignar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="10" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8" />
+          <path d="M3.5 20c0-3.6 2.9-6.5 6.5-6.5 1.6 0 3.1.6 4.2 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          <path d="M18 14v6M15 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+      </span>
+      <div>
+        <h2>Asignar o cambiar rol</h2>
+        <p>Busca a cualquier persona del personal y elige el rol que tendrá en el sistema.</p>
+      </div>
+    </div>
+
+    <div class="asignar-form">
+      <div class="combobox">
+        <label for="usuario-busqueda"><span class="paso">1</span> Persona</label>
+        <input
+          id="usuario-busqueda"
+          type="text"
+          autocomplete="off"
+          placeholder="Escribe el nombre o RFC de la persona…"
+          [ngModel]="query()"
+          (ngModelChange)="onQueryChange($event)"
+          (focus)="mostrarResultados.set(true)"
+          (blur)="onQueryBlur()"
+        />
+
+        @if (mostrarResultados() && (query().trim().length >= 2)) {
+          <ul class="combobox__dropdown">
+            @if (buscando()) {
+              <li class="combobox__hint">Buscando…</li>
+            } @else if (resultados().length === 0) {
+              <li class="combobox__hint">Sin resultados</li>
+            } @else {
+              @for (usuario of resultados(); track usuario.rfc) {
+                <li>
+                  <button type="button" (mousedown)="seleccionarUsuario(usuario)">
+                    <span class="combobox__nombre">
+                      {{ usuario.nombre }}
+                      @if (rolActualDe(usuario.rfc); as rol) {
+                        <span class="combobox__rol chip--rol-{{ rol.clave }}">Ya es {{ rol.nombre }}</span>
+                      }
+                    </span>
+                    <span class="combobox__meta">{{ usuario.rfc }} · {{ usuario.puesto }}</span>
+                  </button>
+                </li>
+              }
+            }
+          </ul>
+        }
+      </div>
+
+      <div class="rol-select">
+        <label for="rol-select"><span class="paso">2</span> Rol</label>
+        <select
+          id="rol-select"
+          [ngModel]="rolSeleccionadoId()"
+          (ngModelChange)="rolSeleccionadoId.set($event)"
+        >
+          <option [ngValue]="null" disabled>Selecciona un rol</option>
+          @for (rol of rolesAsignables(); track rol.id) {
+            <option [ngValue]="rol.id">{{ rol.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="!usuarioSeleccionado() || !rolSeleccionadoId() || guardando()"
+        (click)="asignar()"
+      >
+        @if (guardando()) {
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Guardando…</span>
+        } @else {
+          <span>Asignar rol</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="card card--lista">
+    <div class="tabla-header">
+      <div class="tabla-header__titulo seccion-titulo">
+        <span class="seccion-titulo__icono" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <circle cx="4.5" cy="6" r="1.3" fill="currentColor" />
+            <circle cx="4.5" cy="12" r="1.3" fill="currentColor" />
+            <circle cx="4.5" cy="18" r="1.3" fill="currentColor" />
+          </svg>
+        </span>
+        <div>
+        <h2>Roles asignados</h2>
+        @if (!cargandoAsignaciones()) {
+          <p>
+            {{ lista.filtradas().length }} {{ lista.filtradas().length === 1 ? 'registro' : 'registros' }}
+            @if (filtroRol() || lista.busqueda()) {
+              <span>de {{ asignaciones().length }}</span>
+            }
+          </p>
+        }
+        </div>
+      </div>
+    </div>
+
+    @if (cargandoAsignaciones()) {
+      <div class="tabla-skeleton">
+        <div class="tabla-skeleton__header"></div>
+        @for (n of [1, 2, 3, 4, 5, 6]; track n) {
+          <div class="tabla-skeleton__row"></div>
+        }
+      </div>
+    } @else if (asignaciones().length === 0) {
+      <p class="lista-vacia">Todavía no hay roles asignados. Por default, todos los usuarios son "Usuario".</p>
+    } @else {
+      <div class="lista-herramientas">
+        <div class="lista-herramientas__buscador">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" />
+            <path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Filtrar la lista de roles asignados…"
+            aria-label="Buscar"
+            [ngModel]="lista.busqueda()"
+            (ngModelChange)="lista.buscar($event)"
+          />
+          @if (lista.busqueda()) {
+            <button type="button" class="limpiar-busqueda" aria-label="Limpiar búsqueda" (click)="lista.buscar('')">✕</button>
+          }
+        </div>
+        <select class="lista-herramientas__filtro" aria-label="Filtrar por rol" [value]="filtroRol()" (change)="onFiltroRolChange($any($event.target).value)">
+          <option value="">Todos los roles</option>
+          @for (rol of roles(); track rol.id) {
+            <option [value]="rol.clave" [selected]="filtroRol() === rol.clave">{{ rol.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      @if (lista.filtradas().length === 0) {
+        <p class="lista-vacia">Ningún usuario coincide con la búsqueda o el filtro.</p>
+      } @else {
+        <ul class="lista-tarjetas">
+          @for (a of lista.visibles(); track a.rfc) {
+            <li>
+              <app-tarjeta-registro
+                [titulo]="a.nombre ? legible(a.nombre) : a.rfc"
+                [tono]="tonoDe(a)"
+                [nombreParaIniciales]="a.nombre ?? a.rfc"
+              >
+                <div chips>
+                  <span class="chip chip--rol-{{ a.rol.clave }}">{{ a.rol.nombre }}</span>
+                </div>
+                <div datos>
+                  <p class="linea linea--puesto">
+                    @if (a.puesto) {
+                      <span>{{ legible(a.puesto) }}</span>
+                      <span class="linea__sep" aria-hidden="true">·</span>
+                    }
+                    <span class="linea__rfc" title="RFC">{{ a.rfc }}</span>
+                  </p>
+                  <p class="linea linea--adscripcion">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 8h3M8 12h3M8 16h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    @if (a.direccion || a.departamento) {
+                      @if (a.direccion) {
+                        <span title="Dirección">{{ legible(a.direccion) }}</span>
+                      }
+                      @if (a.departamento && a.departamento !== a.direccion) {
+                        @if (a.direccion) {
+                          <svg class="linea__flecha" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                        }
+                        <span title="Departamento">{{ legible(a.departamento) }}</span>
+                      }
+                    } @else {
+                      <span class="linea__vacio">Sin adscripción registrada</span>
+                    }
+                  </p>
+                </div>
+                <div acciones>
+                  <button type="button" class="accion accion--cancelar" title="Quitar rol" aria-label="Quitar rol" (click)="quitar(a)">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-1 12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7h12Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              </app-tarjeta-registro>
+            </li>
+          }
+        </ul>
+        <app-paginador
+          [total]="lista.filtradas().length"
+          [pagina]="lista.pagina()"
+          [tamano]="lista.tamano()"
+          (paginaChange)="lista.irAPagina($event)"
+          (tamanoChange)="lista.cambiarTamano($event)"
+        />
+      }
+    }
+  </div>
+</section>

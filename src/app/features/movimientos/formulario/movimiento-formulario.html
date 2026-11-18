@@ -1,0 +1,290 @@
+<section class="formulario-page">
+  <header class="formulario-page__header">
+    <a class="btn btn--outline" routerLink="/movimientos">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span>Regresar</span>
+    </a>
+    <h1>{{ modoEdicion() ? 'Movimiento ' + folio().slice(0, 4) + '-' + folio().slice(4) : 'Captura de movimiento' }}</h1>
+  </header>
+
+  @if (transmitido()) {
+    <p class="aviso">Este movimiento ya está transmitido a nómina; es imposible modificarlo.</p>
+  }
+
+  @if (cargandoInicial()) {
+    <div class="skeleton-card">
+      <div class="skeleton-bar skeleton-bar--title"></div>
+      <div class="skeleton-grid">
+        <div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar"></div>
+      </div>
+    </div>
+  } @else {
+    <fieldset [disabled]="!puedeEditar()" class="sin-borde">
+      <div class="card">
+        <h2><span class="card__numero">1</span>Movimiento</h2>
+        <div class="grid grid--4">
+          <div class="campo">
+            <label>Folio (NNNNAA)</label>
+            <input type="text" maxlength="6" [disabled]="modoEdicion()" [ngModel]="folio()" (ngModelChange)="folio.set($event)" />
+          </div>
+          <div class="campo">
+            <label>Fecha del movimiento <span class="req">*</span></label>
+            <input type="date" [ngModel]="fecMov()" (ngModelChange)="fecMov.set($event)" />
+          </div>
+          <div class="campo">
+            <label>Quincena (1–24) <span class="req">*</span></label>
+            <input type="number" min="1" max="24" [class.is-invalid]="invalido(noQna())" [ngModel]="noQna()" (ngModelChange)="noQna.set($event)" />
+          </div>
+          <div class="campo">
+            <label>Tipo de movimiento <span class="req">*</span></label>
+            <select [ngModel]="tipoMov()" (ngModelChange)="cambiarTipo($event)" [disabled]="modoEdicion()">
+              @for (t of tipos(); track t.clave) {
+                <option [value]="t.clave">{{ t.nombre }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo">
+            <label>Subtipo <span class="req">*</span></label>
+            <select [ngModel]="subtipoMov()" (ngModelChange)="subtipoMov.set($event)" [disabled]="tipoMov() === 'T'">
+              @for (s of subtiposDelTipo(); track s.clave) {
+                <option [value]="s.clave">{{ s.nombre }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="card__numero">2</span>Empleado</h2>
+        <div class="grid grid--3">
+          <div class="campo">
+            <label>C.U.R.P. <span class="req">*</span></label>
+            <input type="text" maxlength="18" class="mayus" [class.is-invalid]="invalido(curp())"
+              [ngModel]="curp()" (ngModelChange)="curp.set($event)" (blur)="alSalirDeCurp()" />
+          </div>
+          <div class="campo campo--busqueda">
+            <label>Nombre <span class="req">*</span></label>
+            <input type="text" class="mayus" autocomplete="off" [class.is-invalid]="invalido(nombre())"
+              [ngModel]="nombre()" (ngModelChange)="buscarEmpleado($event)"
+              [placeholder]="esAlta() ? '' : 'Escribe 3 letras para buscar en nómina'" />
+            @if (resultadosBusqueda().length && !esAlta()) {
+              <ul class="resultados">
+                @for (e of resultadosBusqueda(); track e.curp) {
+                  <li><button type="button" (click)="elegirEmpleado(e)">{{ e.nombre }} <small>{{ e.curp }}</small></button></li>
+                }
+              </ul>
+            }
+          </div>
+          @if (visible('rfc')) {
+            <div class="campo">
+              <label>R.F.C.</label>
+              <input type="text" maxlength="14" class="mayus" [ngModel]="rfc()" (ngModelChange)="rfc.set($event)" />
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="card__numero">3</span>Puesto y contratación</h2>
+        <div class="grid grid--3">
+          @if (visible('ads')) {
+            <div class="campo campo--full">
+              <label>Adscripción <span class="req">*</span></label>
+              <select [class.is-invalid]="invalido(adsAct())" [ngModel]="adsAct()" (ngModelChange)="adsAct.set(+$event)">
+                <option [ngValue]="null">Selecciona…</option>
+                @for (a of adscripciones(); track a.id) {
+                  <option [ngValue]="a.id">{{ a.descripcion }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (visible('nivel')) {
+            <div class="campo">
+              <label>Nivel <span class="req">*</span></label>
+              <input type="number" min="0" max="98" [ngModel]="nivel()" (ngModelChange)="cambiarNivel($event)" />
+            </div>
+          }
+          @if (visible('puesto')) {
+            <div class="campo">
+              <label>Puesto <span class="req">*</span></label>
+              <select [class.is-invalid]="invalido(puestoClave())" [ngModel]="puestoClave()" (ngModelChange)="puestoClave.set($event)">
+                <option value="">{{ nivel() == null ? 'Captura el nivel' : 'Selecciona…' }}</option>
+                @for (p of puestos(); track p.clave) {
+                  <option [value]="p.clave">{{ p.descripcion }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (visible('rango')) {
+            <div class="campo">
+              <label>Rango <span class="req">*</span></label>
+              <input type="number" min="1" [class.is-invalid]="invalido(rango())" [ngModel]="rango()" (ngModelChange)="rango.set($event)" />
+            </div>
+          }
+          @if (visible('tipCon')) {
+            <div class="campo">
+              <label>Forma de contratación @if (esAlta()) { <span class="req">*</span> }</label>
+              <select [class.is-invalid]="esAlta() && invalido(tipCon())" [ngModel]="tipCon()" (ngModelChange)="tipCon.set($event)">
+                <option value="">Selecciona…</option>
+                @for (f of fijos()?.formasContratacion; track f.clave) {
+                  <option [value]="f.clave">{{ f.nombre }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (visible('tipoNomina')) {
+            <div class="campo">
+              <label>Tipo de nómina <span class="req">*</span></label>
+              <select [ngModel]="tipoNomina()" (ngModelChange)="cambiarNomina($event)">
+                @for (t of fijos()?.tiposNomina; track t.clave) {
+                  <option [value]="t.clave">{{ t.nombre }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (visible('fAlta')) {
+            <div class="campo">
+              <label>A partir de</label>
+              <input type="date" [ngModel]="fAlta()" (ngModelChange)="fAlta.set($event)" />
+            </div>
+          }
+          @if (visible('fTerm')) {
+            <div class="campo">
+              <label>Fecha de término @if (tipoMov() === 'B') { <span class="req">*</span> }</label>
+              <input type="date" [class.is-invalid]="tipoMov() === 'B' && invalido(fTerm())" [ngModel]="fTerm()" (ngModelChange)="fTerm.set($event)" />
+            </div>
+          }
+          @if (visible('reemp')) {
+            <div class="campo campo--full">
+              <label>En sustitución de</label>
+              <input type="text" class="mayus" [ngModel]="reemp()" (ngModelChange)="reemp.set($event)" />
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="card__numero">4</span>Horario y banco</h2>
+        <div class="grid grid--4">
+          @if (visible('horario')) {
+            <div class="campo">
+              <label>Horario</label>
+              <select [ngModel]="horario()" (ngModelChange)="horario.set($event)">
+                <option value="">—</option>
+                @for (h of fijos()?.horarios; track h.clave) {
+                  <option [value]="h.clave">{{ h.nombre }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (visible('horas')) {
+            <div class="campo">
+              <label>H. matutino</label>
+              <input type="text" maxlength="20" [ngModel]="hMat()" (ngModelChange)="hMat.set($event)" />
+            </div>
+            <div class="campo">
+              <label>H. vespertino</label>
+              <input type="text" maxlength="20" [ngModel]="hVes()" (ngModelChange)="hVes.set($event)" />
+            </div>
+          }
+          @if (visible('tarj')) {
+            <div class="campo">
+              <label>Tarjeta de asistencia</label>
+              <select [ngModel]="tarj()" (ngModelChange)="tarj.set($event === null ? null : +$event)">
+                <option [ngValue]="null">—</option>
+                <option [ngValue]="1">SÍ</option>
+                <option [ngValue]="0">NO</option>
+              </select>
+            </div>
+          }
+          @if (visible('ctaBan')) {
+            <div class="campo">
+              <label>Cuenta bancaria</label>
+              <input type="text" maxlength="20" [ngModel]="ctaBan()" (ngModelChange)="ctaBan.set($event)" />
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (visible('percepciones')) {
+        <div class="card">
+          <h2><span class="card__numero">5</span>Percepciones</h2>
+          @if (muestraAnteriores() && percepcionesAnteriores() !== null) {
+            <p class="hint">Percepciones anteriores: <strong>{{ percepcionesAnteriores() | number: '1.2-2' }}</strong></p>
+          }
+          <table class="percepciones">
+            <thead>
+              <tr><th>Cve.</th><th>Concepto</th><th class="der">Importe</th><th></th></tr>
+            </thead>
+            <tbody>
+              @for (p of percepciones(); track $index) {
+                <tr>
+                  <td>
+                    <select [ngModel]="p.cve" (ngModelChange)="cambiarPercepcion($index, { cve: +$event })">
+                      <option [ngValue]="0">—</option>
+                      @for (c of catPercepciones(); track c.cve) {
+                        <option [ngValue]="c.cve">{{ c.cve }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>{{ descripcionDe(p.cve) || p.descripcion }}</td>
+                  <td class="der">
+                    <input type="number" step="0.01" min="0" [ngModel]="p.importe" (ngModelChange)="cambiarPercepcion($index, { importe: +$event })" />
+                  </td>
+                  <td><button type="button" class="quitar" aria-label="Quitar percepción" (click)="quitarPercepcion($index)">✕</button></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="vacio">Sin percepciones capturadas.</td></tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr><td colspan="2" class="der">Total percepción:</td><td class="der"><strong>{{ totalPercepciones() | number: '1.2-2' }}</strong></td><td></td></tr>
+            </tfoot>
+          </table>
+          <div class="acciones-fila">
+            <button type="button" class="btn btn--outline" (click)="agregarPercepcion()">Agregar percepción</button>
+            <button type="button" class="btn btn--outline" (click)="sugerirPercepciones()">Calcular desde tabulador</button>
+          </div>
+        </div>
+      }
+
+      <div class="card">
+        <h2><span class="card__numero">6</span>Observaciones y documentación</h2>
+        <div class="campo">
+          <label>Observaciones</label>
+          <textarea maxlength="250" [ngModel]="obs()" (ngModelChange)="obs.set($event)"></textarea>
+        </div>
+        @if (visible('documOk')) {
+          <div class="campo campo--corto">
+            <label>¿Documentación completa?</label>
+            <select [ngModel]="documOk()" (ngModelChange)="documOk.set($event)">
+              <option value="S">SÍ</option>
+              <option value="N">NO</option>
+            </select>
+          </div>
+        }
+      </div>
+    </fieldset>
+
+    <div class="acciones">
+      <p class="acciones__hint"><span class="req">*</span> Campos obligatorios</p>
+      <div class="acciones__botones">
+        @if (puedeEditar()) {
+          <button type="button" class="btn btn--primary" [disabled]="enviando()" (click)="guardar()">
+            @if (enviando()) {
+              <span class="spinner" aria-hidden="true"></span><span>Guardando…</span>
+            } @else {
+              <span>{{ modoEdicion() ? 'Guardar cambios' : 'Guardar movimiento' }}</span>
+            }
+          </button>
+        }
+        @if (esAdmin && modoEdicion() && !transmitido()) {
+          <button type="button" class="btn btn--outline" (click)="transmitir()">Transmitir a nómina</button>
+          <button type="button" class="btn btn--danger" (click)="eliminar()">Eliminar</button>
+        }
+      </div>
+    </div>
+  }
+</section>

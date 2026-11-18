@@ -1,0 +1,41 @@
+<section class="home">
+  <div class="home__icono" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none">
+      <circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8" />
+      <path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      <path d="M17 8v6m-3-3h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+    </svg>
+  </div>
+  <span class="home__eyebrow">SIModpersonal</span>
+  <h1>
+    @if (user(); as u) {
+      Bienvenido, {{ u.nombre }}
+    } @else {
+      Bienvenido
+    }
+  </h1>
+  <p class="home__subtitulo">Módulo de Movimientos de Personal</p>
+
+  @if (sinAcceso()) {
+    <p class="home__aviso">
+      Tu usuario aún no tiene un rol asignado. Solicita a un administrador que te dé acceso.
+    </p>
+  } @else {
+    <div class="home__accesos">
+      @if (puedeCapturar()) {
+        <a class="acceso" routerLink="/movimientos/nuevo">
+          <strong>Captura</strong>
+          <span>Altas, bajas, promociones, transferencias y licencias</span>
+        </a>
+      }
+      <a class="acceso" routerLink="/movimientos">
+        <strong>Consulta individual</strong>
+        <span>Busca un movimiento por folio, nombre, CURP o RFC</span>
+      </a>
+      <a class="acceso" routerLink="/consulta-periodo">
+        <strong>Movimientos por periodo</strong>
+        <span>Consulta por quincenas y exporta a Excel</span>
+      </a>
+    </div>
+  }
+</section>

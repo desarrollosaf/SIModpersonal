@@ -1,0 +1,61 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>Consulta individual</h1>
+      <p>Busca un movimiento por folio, nombre, CURP o RFC.</p>
+    </div>
+    @if (puedeCapturar()) {
+      <a class="btn btn--primary" routerLink="/movimientos/nuevo">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        <span>Nuevo movimiento</span>
+      </a>
+    }
+  </header>
+
+  <div class="card">
+    <div class="herramientas">
+      <input
+        type="search"
+        class="herramientas__buscar"
+        placeholder="Folio, nombre, CURP o RFC…"
+        aria-label="Buscar"
+        [ngModel]="busqueda()"
+        (ngModelChange)="buscar($event)"
+      />
+      <select aria-label="Tipo de movimiento" [ngModel]="tipoMov()" (ngModelChange)="tipoMov.set($event); cambiarFiltro()">
+        <option value="">Todos los tipos</option>
+        <option value="A">Altas</option>
+        <option value="B">Bajas</option>
+        <option value="P">Promociones</option>
+        <option value="T">Transferencias</option>
+        <option value="L">Licencias</option>
+      </select>
+      <label class="herramientas__anio">
+        <span>Año</span>
+        <input type="text" maxlength="2" [ngModel]="anio()" (ngModelChange)="anio.set($event)" (change)="cambiarFiltro()" />
+      </label>
+    </div>
+
+    @if (cargando()) {
+      <div class="tabla-skeleton">
+        <div class="tabla-skeleton__header"></div>
+        @for (n of [1, 2, 3, 4, 5]; track n) {
+          <div class="tabla-skeleton__row"></div>
+        }
+      </div>
+    } @else if (error()) {
+      <p class="hint hint--error">{{ error() }}</p>
+    } @else {
+      <app-tabla-movimientos [movimientos]="datos()" />
+      <app-paginador
+        [total]="total()"
+        [pagina]="pagina()"
+        [tamano]="tamano()"
+        (paginaChange)="irAPagina($event)"
+        (tamanoChange)="cambiarTamano($event)"
+      />
+    }
+  </div>
+</section>
