@@ -30,13 +30,13 @@ interface ConnectionConfig {
       isGlobal: true,
       load: [databaseConfig, authConfig],
     }),
-    // Conexión principal (default): PostgreSQL con los datos propios de SIModpersonal.
+    // Conexión principal (default): MySQL con los datos propios de SIModpersonal.
     SequelizeModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService): SequelizeModuleOptions => {
         const db = config.get<ConnectionConfig>('database.main')!;
         return {
-          dialect: 'postgres',
+          dialect: 'mysql',
           ...db,
           models: [],
           autoLoadModels: true,

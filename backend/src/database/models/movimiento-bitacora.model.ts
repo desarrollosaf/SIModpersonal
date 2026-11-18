@@ -19,6 +19,6 @@ export class MovimientoBitacora extends Model {
   @Column({ type: DataType.STRING(20), allowNull: true, field: 'usuario_rfc' })
   declare usuarioRfc: string | null;
 
-  @Column({ type: DataType.JSONB, allowNull: true })
+  @Column({ type: DataType.JSON, allowNull: true })
   declare datos: object | null;
 }

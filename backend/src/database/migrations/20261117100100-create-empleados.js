@@ -41,7 +41,7 @@ module.exports = {
       ...timestamps,
     });
     await queryInterface.sequelize.query(
-      'CREATE INDEX ix_empleados_curp10 ON empleados (substr(curp, 1, 10))',
+      'CREATE INDEX ix_empleados_curp10 ON empleados (curp(10))',
     );
     await queryInterface.addIndex('empleados', ['rfc']);
 
@@ -54,7 +54,7 @@ module.exports = {
       ...timestamps,
     });
     await queryInterface.sequelize.query(
-      'CREATE INDEX ix_pagos_descuentos_curp10 ON pagos_descuentos (substr(curp, 1, 10), t_m)',
+      'CREATE INDEX ix_pagos_descuentos_curp10 ON pagos_descuentos (curp(10), t_m)',
     );
 
     await queryInterface.createTable('horarios', {

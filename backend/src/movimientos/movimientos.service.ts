@@ -98,7 +98,7 @@ export class MovimientosService {
       condiciones.push({
         [Op.or]: [
           { folio: { [Op.like]: `${t}%` } },
-          { nombre: { [Op.iLike]: `%${q}%` } },
+          { nombre: { [Op.like]: `%${q}%` } },
           { curp: { [Op.like]: `${t}%` } },
           { rfc: { [Op.like]: `${t}%` } },
         ],

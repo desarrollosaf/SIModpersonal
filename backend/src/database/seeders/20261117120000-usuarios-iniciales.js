@@ -79,7 +79,7 @@ module.exports = {
       await sequelize.query(
         `INSERT INTO usuario_roles (rfc, rol_id, created_at, updated_at)
          SELECT :rfc, id, NOW(), NOW() FROM roles WHERE clave = :rol
-         ON CONFLICT (rfc) DO UPDATE SET rol_id = EXCLUDED.rol_id, updated_at = NOW()`,
+         ON DUPLICATE KEY UPDATE rol_id = VALUES(rol_id), updated_at = NOW()`,
         { replacements: { rfc: u.rfc, rol: u.rol } },
       );
     }

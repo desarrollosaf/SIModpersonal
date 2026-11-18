@@ -53,13 +53,13 @@ module.exports = {
     });
     const q = (sql) => queryInterface.sequelize.query(sql);
     await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_qna CHECK (no_qna BETWEEN 1 AND 24)`);
-    await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_folio CHECK (folio ~ '^[0-9]{6}$')`);
+    await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_folio CHECK (folio REGEXP '^[0-9]{6}$')`);
     await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_tip_con CHECK (tip_con IS NULL OR tip_con IN ('C','B','S','T','O'))`);
     await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_tipo_nomina CHECK (tipo_nomina IN ('D','P','H'))`);
     await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_horario CHECK (horario IS NULL OR horario IN ('O','E','V'))`);
     await q(`ALTER TABLE movimientos ADD CONSTRAINT ck_movimientos_docum_ok CHECK (docum_ok IN ('S','N','T'))`);
-    await q('CREATE INDEX ix_movimientos_curp10 ON movimientos (substr(curp, 1, 10))');
-    await q('CREATE INDEX ix_movimientos_periodo ON movimientos (substr(folio, 5, 2), no_qna)');
+    await q('CREATE INDEX ix_movimientos_curp10 ON movimientos (curp(10))');
+    await q('CREATE INDEX ix_movimientos_periodo ON movimientos ((substr(folio, 5, 2)), no_qna)');
     await queryInterface.addIndex('movimientos', ['fec_mov']);
     await queryInterface.addIndex('movimientos', ['tipo_mov', 'subtipo_mov']);
 
@@ -90,7 +90,7 @@ module.exports = {
       folio: { type: Sequelize.STRING(6), allowNull: false },
       accion: { type: Sequelize.STRING(20), allowNull: false }, // CREAR, MODIFICAR, TRANSMITIR, ELIMINAR
       usuario_rfc: { type: Sequelize.STRING(20), allowNull: true },
-      datos: { type: Sequelize.JSONB, allowNull: true },
+      datos: { type: Sequelize.JSON, allowNull: true },
       created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
     });
     await queryInterface.addIndex('movimientos_bitacora', ['folio']);
