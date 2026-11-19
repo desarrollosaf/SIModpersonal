@@ -15,6 +15,8 @@ import { AuthModule } from './auth/auth.module';
 import { CatalogosModule } from './catalogos/catalogos.module';
 import { EmpleadosModule } from './empleados/empleados.module';
 import { MovimientosModule } from './movimientos/movimientos.module';
+import { BajasModule } from './bajas/bajas.module';
+import { ValidacionModule } from './validacion/validacion.module';
 
 interface ConnectionConfig {
   host: string;
@@ -72,6 +74,8 @@ interface ConnectionConfig {
     CatalogosModule,
     EmpleadosModule,
     MovimientosModule,
+    BajasModule,
+    ValidacionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

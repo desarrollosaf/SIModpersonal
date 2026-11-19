@@ -25,9 +25,15 @@ import { Movimiento } from '../../core/services/movimientos.service';
           </tr>
         </thead>
         <tbody>
-          @for (m of movimientos(); track m.folio) {
+          @for (m of movimientos(); track m.folio || 'B' + m.id) {
             <tr>
-              <td><a [routerLink]="['/movimientos', m.folio]" class="folio">{{ m.folio.slice(0, 4) }}-{{ m.folio.slice(4) }}</a></td>
+              <td>
+                @if (m.esBaja) {
+                  <span class="sin-folio" title="Baja del concentrado: no tiene folio">—</span>
+                } @else {
+                  <a [routerLink]="['/movimientos', m.folio]" class="folio">{{ m.folio.slice(0, 4) }}-{{ m.folio.slice(4) }}</a>
+                }
+              </td>
               <td>{{ m.fecMov }}</td>
               <td class="centro">{{ m.noQna }}</td>
               <td>
@@ -39,7 +45,11 @@ import { Movimiento } from '../../core/services/movimientos.service';
               <td>{{ m.adscripcion }}</td>
               <td>{{ m.puesto }}</td>
               <td>
-                @if (m.documOk === 'T') {
+                @if (m.esBaja) {
+                  <span class="estado" [class.estado--t]="m.estatusBaja === 'transmitida'" [class.estado--s]="m.estatusBaja === 'validada'" [class.estado--n]="m.estatusBaja === 'capturada'">
+                    {{ m.estatusBaja === 'transmitida' ? 'Enviada a nómina' : m.estatusBaja === 'validada' ? 'Validada' : 'Capturada' }}
+                  </span>
+                } @else if (m.documOk === 'T') {
                   <span class="estado estado--t">Transmitido</span>
                 } @else if (m.documOk === 'S') {
                   <span class="estado estado--s">Doc. completa</span>
@@ -48,7 +58,11 @@ import { Movimiento } from '../../core/services/movimientos.service';
                 }
               </td>
               <td class="acciones">
-                <a [routerLink]="['/movimientos', m.folio]" class="ver">{{ m.documOk === 'T' ? 'Ver' : 'Abrir' }}</a>
+                @if (m.esBaja) {
+                  <a routerLink="/validacion" class="ver">Validación</a>
+                } @else {
+                  <a [routerLink]="['/movimientos', m.folio]" class="ver">{{ m.documOk === 'T' ? 'Ver' : 'Abrir' }}</a>
+                }
               </td>
             </tr>
           } @empty {
@@ -68,6 +82,7 @@ import { Movimiento } from '../../core/services/movimientos.service';
     tr:last-child td { border-bottom: none; }
     .centro { text-align: center; }
     .mono { font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; }
+    .sin-folio { color: var(--brand-muted); }
     .folio { font-weight: 700; color: var(--brand-primary); text-decoration: none; }
     td small { display: block; margin-top: 0.2rem; color: var(--brand-muted); font-size: 0.74rem; }
     .chip { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: #eee; }

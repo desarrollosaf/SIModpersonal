@@ -5,8 +5,10 @@ import { CatPuesto } from '../database/models/cat-puesto.model';
 import { CatPercepcion } from '../database/models/cat-percepcion.model';
 import { TipoMovimiento } from '../database/models/tipo-movimiento.model';
 import { SubtipoMovimiento } from '../database/models/subtipo-movimiento.model';
-import { TablaNivel } from '../database/models/tabla-nivel.model';
-import { TablaRango } from '../database/models/tabla-rango.model';
+import { TabuladorModule } from '../tabulador/tabulador.module';
+import { TDependencia } from '../database/models/t-dependencia.model';
+import { TDireccion } from '../database/models/t-direccion.model';
+import { TDepartamento } from '../database/models/t-departamento.model';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { CatalogosController } from './catalogos.controller';
 import { CatalogosService } from './catalogos.service';
@@ -19,9 +21,9 @@ import { CatalogosService } from './catalogos.service';
       CatPercepcion,
       TipoMovimiento,
       SubtipoMovimiento,
-      TablaNivel,
-      TablaRango,
     ]),
+    SequelizeModule.forFeature([TDependencia, TDireccion, TDepartamento], 'external'),
+    TabuladorModule,
     JwtAuthModule,
   ],
   controllers: [CatalogosController],

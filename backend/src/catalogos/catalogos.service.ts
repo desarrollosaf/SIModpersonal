@@ -5,8 +5,10 @@ import { CatPuesto } from '../database/models/cat-puesto.model';
 import { CatPercepcion } from '../database/models/cat-percepcion.model';
 import { TipoMovimiento } from '../database/models/tipo-movimiento.model';
 import { SubtipoMovimiento } from '../database/models/subtipo-movimiento.model';
-import { TablaNivel } from '../database/models/tabla-nivel.model';
-import { TablaRango } from '../database/models/tabla-rango.model';
+import { TabuladorService } from '../tabulador/tabulador.service';
+import { TDependencia } from '../database/models/t-dependencia.model';
+import { TDireccion } from '../database/models/t-direccion.model';
+import { TDepartamento } from '../database/models/t-departamento.model';
 import { FORMAS_CONTRATACION, HORARIOS } from '../common/dominio';
 
 @Injectable()
@@ -20,9 +22,44 @@ export class CatalogosService {
     @InjectModel(TipoMovimiento) private readonly tipos: typeof TipoMovimiento,
     @InjectModel(SubtipoMovimiento)
     private readonly subtipos: typeof SubtipoMovimiento,
-    @InjectModel(TablaNivel) private readonly niveles: typeof TablaNivel,
-    @InjectModel(TablaRango) private readonly rangos: typeof TablaRango,
+    private readonly tabuladorService: TabuladorService,
+    @InjectModel(TDependencia, 'external')
+    private readonly dependencias: typeof TDependencia,
+    @InjectModel(TDireccion, 'external')
+    private readonly direcciones: typeof TDireccion,
+    @InjectModel(TDepartamento, 'external')
+    private readonly departamentos: typeof TDepartamento,
   ) {}
+
+  // Dependencia > Dirección > Departamento: catálogo de personal (saf), solo los vigentes (Estado = 1).
+
+  async listarDependencias() {
+    const filas = await this.dependencias.findAll({
+      where: { Estado: 1 },
+      order: [['orden', 'ASC'], ['Nombre', 'ASC']],
+    });
+    return filas.map((f) => ({ id: f.id_Dependencia, nombre: f.Nombre }));
+  }
+
+  async listarDirecciones(dependenciaId: number) {
+    const filas = await this.direcciones.findAll({
+      where: { Estado: 1, id_Dependencia: dependenciaId },
+      order: [['nombre_completo', 'ASC']],
+    });
+    return filas.map((f) => ({ id: f.id_Direccion, nombre: f.nombre_completo || f.Nombre }));
+  }
+
+  async listarDepartamentos(direccionId: number) {
+    const filas = await this.departamentos.findAll({
+      where: { Estado: 1, id_Direccion: direccionId },
+      order: [['Nombre', 'ASC']],
+    });
+    // Departamento: nombre completo + clave presupuestal, ej. "11040 - UNIDAD DE ASISTENCIA SOCIAL".
+    return filas.map((f) => ({
+      id: f.id_Departamento,
+      nombre: `${f.c_presup} - ${f.nombre_completo || f.Nombre}`,
+    }));
+  }
 
   listarAdscripciones() {
     return this.adscripciones.findAll({
@@ -43,7 +80,7 @@ export class CatalogosService {
 
   listarPercepciones(tipoNomina?: string) {
     return this.percepciones.findAll({
-      where: tipoNomina ? { tipoNomina } : {},
+      where: { activo: true, ...(tipoNomina ? { tipoNomina } : {}) },
       order: [['cve', 'ASC']],
     });
   }
@@ -65,9 +102,7 @@ export class CatalogosService {
 
   /** Importes del tabulador para un nivel (Imp-Nivel y arreglos Imp-Rang[] / Imp-Comp[]). */
   tabulador(nivel: number) {
-    return this.niveles.findByPk(nivel, {
-      include: [{ model: TablaRango, order: [['rango', 'ASC']] }],
-    });
+    return this.tabuladorService.detalleNivel(nivel);
   }
 
   /** Catálogos fijos del formulario (combos de CAP-MOP). */

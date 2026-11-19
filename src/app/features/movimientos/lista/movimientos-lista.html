@@ -2,7 +2,7 @@
   <header class="page__header">
     <div>
       <h1>Consulta individual</h1>
-      <p>Busca un movimiento por folio, nombre, CURP o RFC.</p>
+      <p>Movimientos de la quincena en curso. Al buscar por folio, nombre, CURP o RFC se busca en todo el año.</p>
     </div>
     @if (puedeCapturar()) {
       <a class="btn btn--primary" routerLink="/movimientos/nuevo">
@@ -31,6 +31,12 @@
         <option value="P">Promociones</option>
         <option value="T">Transferencias</option>
         <option value="L">Licencias</option>
+      </select>
+      <select aria-label="Quincena" [ngModel]="quincena()" (ngModelChange)="quincena.set(+$event); cambiarFiltro()">
+        <option [ngValue]="0">Todas las quincenas</option>
+        @for (q of quincenas; track q.numero) {
+          <option [ngValue]="q.numero">{{ q.etiqueta }}</option>
+        }
       </select>
       <label class="herramientas__anio">
         <span>Año</span>

@@ -22,6 +22,21 @@ export class CatalogosController {
     return this.catalogos.fijos();
   }
 
+  @Get('dependencias')
+  dependencias() {
+    return this.catalogos.listarDependencias();
+  }
+
+  @Get('direcciones')
+  direcciones(@Query('dependencia', ParseIntPipe) dependencia: number) {
+    return this.catalogos.listarDirecciones(dependencia);
+  }
+
+  @Get('departamentos')
+  departamentos(@Query('direccion', ParseIntPipe) direccion: number) {
+    return this.catalogos.listarDepartamentos(direccion);
+  }
+
   @Get('adscripciones')
   adscripciones() {
     return this.catalogos.listarAdscripciones();

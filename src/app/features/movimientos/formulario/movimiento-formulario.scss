@@ -192,3 +192,22 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.campo--resultados { margin: -0.5rem 0 0; height: 0; }
+
+.tabulador {
+  border: 1px solid var(--brand-border, #d9e1dc);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+
+  &__titulo { margin: 0 0 0.5rem; font-weight: 600; span { font-weight: 400; color: var(--brand-muted); } }
+  &__opcion {
+    display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0; cursor: pointer;
+    input { width: auto; margin: 0; }
+  }
+  &__concepto { flex: 1; small { color: var(--brand-muted); margin-right: 0.3rem; } }
+  &__importe { font-variant-numeric: tabular-nums; font-weight: 600; }
+}
+
+.percepciones .partida { font-variant-numeric: tabular-nums; color: var(--brand-muted); font-size: 0.85rem; }

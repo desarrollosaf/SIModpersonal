@@ -1,0 +1,110 @@
+<section class="page">
+  <header class="page__header">
+    <h1>Bitácora e histórico de movimientos</h1>
+    <p>La bitácora registra todo lo que se hace con los movimientos. El histórico guarda una copia de lo transferido a nómina; ninguno se puede modificar.</p>
+  </header>
+
+  <div class="card">
+    <div class="pestanas">
+      <button type="button" class="pestana" [class.activa]="vista() === 'bitacora'" (click)="cambiarVista('bitacora')">Bitácora</button>
+      <button type="button" class="pestana" [class.activa]="vista() === 'historico'" (click)="cambiarVista('historico')">Histórico</button>
+    </div>
+
+    <div class="filtros-b">
+      <label class="campo">
+        <span>Año</span>
+        <input type="number" min="2000" max="2100" [ngModel]="anio()" (ngModelChange)="anio.set($event ? +$event : null)" />
+      </label>
+      <label class="campo">
+        <span>Quincena</span>
+        <select [ngModel]="noQna()" (ngModelChange)="noQna.set($event)">
+          <option [ngValue]="null">Todas</option>
+          @for (q of quincenas; track q.numero) {
+            <option [ngValue]="q.numero">{{ q.etiqueta }}</option>
+          }
+        </select>
+      </label>
+      <label class="campo">
+        <span>RFC</span>
+        <input type="text" class="mayus" [ngModel]="rfc()" (ngModelChange)="rfc.set($event)" (keyup.enter)="filtrar()" />
+      </label>
+      @if (vista() === 'bitacora') {
+        <label class="campo">
+          <span>Acción</span>
+          <select [ngModel]="accion()" (ngModelChange)="accion.set($event)">
+            <option value="">Todas</option>
+            <option value="captura">Captura</option>
+            <option value="validacion">Validación</option>
+            <option value="cancelacion">Cancelación</option>
+            <option value="transferencia">Transferencia</option>
+          </select>
+        </label>
+      }
+    </div>
+    <div class="acciones">
+      <button type="button" class="btn btn--primary" [disabled]="cargando()" (click)="filtrar()">Consultar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="hint">{{ total() }} registro(s)</p>
+
+    @if (vista() === 'bitacora') {
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead><tr><th>Fecha</th><th>Acción</th><th>Tipo</th><th>Folio</th><th>RFC / CURP</th><th>Quincena</th><th>Cambio de estatus</th><th>Lote</th><th>Usuario</th></tr></thead>
+          <tbody>
+            @for (r of bitacora(); track r.id) {
+              <tr>
+                <td>{{ r.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ r.accion }}</td>
+                <td>{{ r.tipoMov }}</td>
+                <td>{{ r.folio || '—' }}</td>
+                <td>{{ r.rfcPersonal }}</td>
+                <td>{{ r.noQna }}/{{ r.anio }}</td>
+                <td>{{ r.estatusAnterior || '—' }} → {{ r.estatusNuevo || '—' }}</td>
+                <td>{{ r.loteId }}</td>
+                <td>{{ r.usuarioRfc }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="9" class="vacio">Sin registros.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead><tr><th>Lote</th><th>Tipo</th><th>Folio</th><th>Quincena</th><th>RFC</th><th>Nombre</th><th>Puesto</th><th>Motivo / subtipo</th><th>Fecha</th><th>Envió</th><th>Enviado el</th></tr></thead>
+          <tbody>
+            @for (r of historico(); track r.id) {
+              <tr>
+                <td>{{ r.loteId }}</td>
+                <td>{{ r.tipoMov }}</td>
+                <td>{{ r.folio || '—' }}</td>
+                <td>{{ r.noQna }}/{{ r.anio }}</td>
+                <td>{{ r.rfc }}</td>
+                <td>{{ r.nombre }}</td>
+                <td>{{ r.puesto }}</td>
+                <td>{{ r.motivo }}</td>
+                <td>{{ r.fechaMov || r.fechaBaja }}</td>
+                <td>{{ r.transmitidoPor }}</td>
+                <td>{{ r.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="11" class="vacio">Sin registros.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (paginas() > 1) {
+      <div class="acciones">
+        <button type="button" class="btn btn--outline" [disabled]="pagina() === 1" (click)="irA(pagina() - 1)">Anterior</button>
+        <span class="hint">Página {{ pagina() }} de {{ paginas() }}</span>
+        <button type="button" class="btn btn--outline" [disabled]="pagina() === paginas()" (click)="irA(pagina() + 1)">Siguiente</button>
+      </div>
+    }
+  </div>
+</section>

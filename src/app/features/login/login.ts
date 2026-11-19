@@ -1,14 +1,15 @@
 import { Component, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
@@ -52,9 +53,9 @@ export class Login {
     this.loading.set(true);
 
     this.authService.login(rfc!.trim(), password!).subscribe({
-      next: () => {
+      next: ({ user }) => {
         this.loading.set(false);
-        this.router.navigateByUrl('/home');
+        this.router.navigateByUrl(user.cambio_contrasena || !environment.forzarCambioContrasena ? '/home' : '/cambiar-contrasena');
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);

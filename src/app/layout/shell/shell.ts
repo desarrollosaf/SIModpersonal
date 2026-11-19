@@ -21,6 +21,8 @@ const MOVIMIENTOS: NavItem = {
     { label: 'Captura de movimientos', route: '/movimientos/nuevo' },
     { label: 'Consulta individual', route: '/movimientos' },
     { label: 'Movimientos por periodo', route: '/consulta-periodo' },
+    { label: 'Validación y envío a nómina', route: '/validacion' },
+    { label: 'Bitácora e histórico', route: '/bitacora' },
   ],
 };
 
@@ -29,6 +31,8 @@ const CONSULTA: NavItem = {
   children: [
     { label: 'Consulta individual', route: '/movimientos' },
     { label: 'Movimientos por periodo', route: '/consulta-periodo' },
+    { label: 'Validación y envío a nómina', route: '/validacion' },
+    { label: 'Bitácora e histórico', route: '/bitacora' },
   ],
 };
 

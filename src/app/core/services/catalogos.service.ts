@@ -8,9 +8,10 @@ export interface Opcion {
   clave: string;
   nombre: string;
 }
-export interface Adscripcion {
+/** Opción de Dependencia / Dirección / Departamento (catálogo de personal, saf). */
+export interface OpcionCatalogo {
   id: number;
-  descripcion: string;
+  nombre: string;
 }
 export interface Puesto {
   clave: string;
@@ -20,7 +21,13 @@ export interface Puesto {
 export interface CatPercepcion {
   cve: number;
   tipoNomina: string;
+  /** Descripción larga (CVE-DES-L). */
   descripcion: string;
+  descCorta: string | null;
+  /** P percepción, D deducción. */
+  naturaleza: string;
+  /** Partida presupuestal de la clave. */
+  partida: string | null;
 }
 export interface TipoMovimiento {
   clave: string;
@@ -36,8 +43,9 @@ export interface Prellenado {
   curp: string;
   rfc: string | null;
   nombre: string;
-  adscripcionId: number | null;
-  adscripcion: string | null;
+  dependenciaId: number | null;
+  direccionId: number | null;
+  departamentoId: number | null;
   puestoClave: string | null;
   puesto: string | null;
   nivel: number | null;
@@ -64,8 +72,14 @@ export class CatalogosService {
   fijos(): Observable<CatalogosFijos> {
     return this.http.get<CatalogosFijos>(`${this.url}/catalogos/fijos`);
   }
-  adscripciones(): Observable<Adscripcion[]> {
-    return this.http.get<Adscripcion[]>(`${this.url}/catalogos/adscripciones`);
+  dependencias(): Observable<OpcionCatalogo[]> {
+    return this.http.get<OpcionCatalogo[]>(`${this.url}/catalogos/dependencias`);
+  }
+  direcciones(dependencia: number): Observable<OpcionCatalogo[]> {
+    return this.http.get<OpcionCatalogo[]>(`${this.url}/catalogos/direcciones`, { params: { dependencia } });
+  }
+  departamentos(direccion: number): Observable<OpcionCatalogo[]> {
+    return this.http.get<OpcionCatalogo[]>(`${this.url}/catalogos/departamentos`, { params: { direccion } });
   }
   puestos(nivel?: number): Observable<Puesto[]> {
     let params = new HttpParams();

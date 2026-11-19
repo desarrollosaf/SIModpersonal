@@ -24,22 +24,11 @@
     <fieldset [disabled]="!puedeEditar()" class="sin-borde">
       <div class="card">
         <h2><span class="card__numero">1</span>Movimiento</h2>
-        <div class="grid grid--4">
-          <div class="campo">
-            <label>Folio (NNNNAA)</label>
-            <input type="text" maxlength="6" [disabled]="modoEdicion()" [ngModel]="folio()" (ngModelChange)="folio.set($event)" />
-          </div>
-          <div class="campo">
-            <label>Fecha del movimiento <span class="req">*</span></label>
-            <input type="date" [ngModel]="fecMov()" (ngModelChange)="fecMov.set($event)" />
-          </div>
-          <div class="campo">
-            <label>Quincena (1–24) <span class="req">*</span></label>
-            <input type="number" min="1" max="24" [class.is-invalid]="invalido(noQna())" [ngModel]="noQna()" (ngModelChange)="noQna.set($event)" />
-          </div>
+        <div class="grid grid--3">
           <div class="campo">
             <label>Tipo de movimiento <span class="req">*</span></label>
             <select [ngModel]="tipoMov()" (ngModelChange)="cambiarTipo($event)" [disabled]="modoEdicion()">
+              <option value="" disabled>Selecciona una opción</option>
               @for (t of tipos(); track t.clave) {
                 <option [value]="t.clave">{{ t.nombre }}</option>
               }
@@ -47,40 +36,87 @@
           </div>
           <div class="campo">
             <label>Subtipo <span class="req">*</span></label>
-            <select [ngModel]="subtipoMov()" (ngModelChange)="subtipoMov.set($event)" [disabled]="tipoMov() === 'T'">
+            <select [ngModel]="subtipoMov()" (ngModelChange)="subtipoMov.set($event)" [disabled]="!tipoMov() || tipoMov() === 'T'">
+              <option value="" disabled>Selecciona una opción</option>
               @for (s of subtiposDelTipo(); track s.clave) {
                 <option [value]="s.clave">{{ s.nombre }}</option>
               }
             </select>
           </div>
+          <div class="campo">
+            <label>Fecha del movimiento <span class="req">*</span></label>
+            <input type="date" [ngModel]="fecMov()" (ngModelChange)="fecMov.set($event)" />
+          </div>
+          <div class="campo">
+            <label>Quincena <span class="req">*</span></label>
+            <select [class.is-invalid]="invalido(noQna())" [ngModel]="noQna()" (ngModelChange)="noQna.set($event)">
+              <option [ngValue]="null" disabled>Selecciona una opción</option>
+              @for (q of quincenas; track q.numero) {
+                <option [ngValue]="q.numero">{{ q.etiqueta }}</option>
+              }
+            </select>
+          </div>
+          @if (!esBaja()) {
+          <div class="campo">
+            <label>Folio (NNNNAA)</label>
+            <input type="text" maxlength="6" [disabled]="modoEdicion()" [ngModel]="folio()" (ngModelChange)="folio.set($event)" />
+          </div>
+          }
         </div>
       </div>
 
+      @if (tipoMov()) {
+      @if (!esBaja()) {
       <div class="card">
         <h2><span class="card__numero">2</span>Empleado</h2>
+        @if (eligeDePlantilla()) {
+          <p class="hint">Selecciona a la persona a {{ accionPlantilla() }} (personal activo de la plantilla). Sus datos y su adscripción se llenan solos.</p>
+          <app-seleccion-personal [unico]="true" (elegido)="elegirPersonal($event)" />
+          @if (personaElegida(); as persona) {
+            <p class="hint">Puesto actual: <strong>{{ persona.puesto || '—' }}</strong> · {{ persona.adscripcion }}</p>
+          }
+        }
+        <div class="grid grid--3">
+          <div class="campo">
+            <label>Nombre(s) <span class="req">*</span></label>
+            <input type="text" class="mayus" autocomplete="off" maxlength="40" [class.is-invalid]="invalido(nombres())"
+              [ngModel]="nombres()" (ngModelChange)="escribirNombre('nombres', $event)" [readOnly]="eligeDePlantilla()"
+              [placeholder]="esAlta() || eligeDePlantilla() ? '' : 'Escribe 3 letras para buscar en nómina'" />
+          </div>
+          <div class="campo">
+            <label>Primer apellido <span class="req">*</span></label>
+            <input type="text" class="mayus" autocomplete="off" maxlength="30" [class.is-invalid]="invalido(primerApellido())"
+              [ngModel]="primerApellido()" (ngModelChange)="escribirNombre('primerApellido', $event)" [readOnly]="eligeDePlantilla()" />
+          </div>
+          <div class="campo">
+            <label>Segundo apellido</label>
+            <input type="text" class="mayus" autocomplete="off" maxlength="30"
+              [ngModel]="segundoApellido()" (ngModelChange)="escribirNombre('segundoApellido', $event)" [readOnly]="eligeDePlantilla()" />
+          </div>
+        </div>
+        @if (resultadosBusqueda().length && !esAlta() && !eligeDePlantilla()) {
+          <div class="campo campo--busqueda campo--resultados">
+            <ul class="resultados">
+              @for (e of resultadosBusqueda(); track e.curp) {
+                <li><button type="button" (click)="elegirEmpleado(e)">{{ e.nombre }} <small>{{ e.curp }}</small></button></li>
+              }
+            </ul>
+          </div>
+        }
         <div class="grid grid--3">
           <div class="campo">
             <label>C.U.R.P. <span class="req">*</span></label>
             <input type="text" maxlength="18" class="mayus" [class.is-invalid]="invalido(curp())"
-              [ngModel]="curp()" (ngModelChange)="curp.set($event)" (blur)="alSalirDeCurp()" />
-          </div>
-          <div class="campo campo--busqueda">
-            <label>Nombre <span class="req">*</span></label>
-            <input type="text" class="mayus" autocomplete="off" [class.is-invalid]="invalido(nombre())"
-              [ngModel]="nombre()" (ngModelChange)="buscarEmpleado($event)"
-              [placeholder]="esAlta() ? '' : 'Escribe 3 letras para buscar en nómina'" />
-            @if (resultadosBusqueda().length && !esAlta()) {
-              <ul class="resultados">
-                @for (e of resultadosBusqueda(); track e.curp) {
-                  <li><button type="button" (click)="elegirEmpleado(e)">{{ e.nombre }} <small>{{ e.curp }}</small></button></li>
-                }
-              </ul>
-            }
+              [ngModel]="curp()" (ngModelChange)="curp.set($event)" (blur)="alSalirDeCurp()" [readOnly]="eligeDePlantilla()" />
           </div>
           @if (visible('rfc')) {
             <div class="campo">
               <label>R.F.C.</label>
-              <input type="text" maxlength="14" class="mayus" [ngModel]="rfc()" (ngModelChange)="rfc.set($event)" />
+              <input type="text" maxlength="10" class="mayus" [ngModel]="rfc()" (ngModelChange)="rfc.set($event)" [readOnly]="eligeDePlantilla()" />
+            </div>
+            <div class="campo">
+              <label>Homoclave</label>
+              <input type="text" maxlength="3" class="mayus" [ngModel]="homoclave()" (ngModelChange)="homoclave.set($event)" [readOnly]="eligeDePlantilla()" />
             </div>
           }
         </div>
@@ -90,12 +126,41 @@
         <h2><span class="card__numero">3</span>Puesto y contratación</h2>
         <div class="grid grid--3">
           @if (visible('ads')) {
-            <div class="campo campo--full">
-              <label>Adscripción <span class="req">*</span></label>
-              <select [class.is-invalid]="invalido(adsAct())" [ngModel]="adsAct()" (ngModelChange)="adsAct.set(+$event)">
-                <option [ngValue]="null">Selecciona…</option>
-                @for (a of adscripciones(); track a.id) {
-                  <option [ngValue]="a.id">{{ a.descripcion }}</option>
+            <div class="campo">
+              <label>Dependencia <span class="req">*</span></label>
+              <select [class.is-invalid]="invalido(dependenciaId())" [ngModel]="dependenciaId()" (ngModelChange)="cambiarDependencia($event)">
+                <option [ngValue]="null">Selecciona una opción</option>
+                @for (d of dependencias(); track d.id) {
+                  <option [ngValue]="d.id">{{ d.nombre }}</option>
+                }
+              </select>
+            </div>
+            <div class="campo">
+              <label>Dirección</label>
+              <select [ngModel]="direccionId()" (ngModelChange)="cambiarDireccion($event)" [disabled]="dependenciaId() == null">
+                <option [ngValue]="null">Selecciona una opción</option>
+                @for (d of direcciones(); track d.id) {
+                  <option [ngValue]="d.id">{{ d.nombre }}</option>
+                }
+              </select>
+            </div>
+            <div class="campo">
+              <label>Departamento</label>
+              <select [ngModel]="departamentoId()" (ngModelChange)="departamentoId.set($event)" [disabled]="direccionId() == null">
+                <option [ngValue]="null">Selecciona una opción</option>
+                @for (d of departamentos(); track d.id) {
+                  <option [ngValue]="d.id">{{ d.nombre }}</option>
+                }
+              </select>
+            </div>
+          }
+          @if (visible('puesto')) {
+            <div class="campo">
+              <label>Puesto <span class="req">*</span></label>
+              <select [class.is-invalid]="invalido(puestoClave())" [ngModel]="puestoNombre()" (ngModelChange)="cambiarPuesto($event)">
+                <option value="">Selecciona una opción</option>
+                @for (n of nombresPuesto(); track n) {
+                  <option [value]="n">{{ n }}</option>
                 }
               </select>
             </div>
@@ -103,16 +168,10 @@
           @if (visible('nivel')) {
             <div class="campo">
               <label>Nivel <span class="req">*</span></label>
-              <input type="number" min="0" max="98" [ngModel]="nivel()" (ngModelChange)="cambiarNivel($event)" />
-            </div>
-          }
-          @if (visible('puesto')) {
-            <div class="campo">
-              <label>Puesto <span class="req">*</span></label>
-              <select [class.is-invalid]="invalido(puestoClave())" [ngModel]="puestoClave()" (ngModelChange)="puestoClave.set($event)">
-                <option value="">{{ nivel() == null ? 'Captura el nivel' : 'Selecciona…' }}</option>
-                @for (p of puestos(); track p.clave) {
-                  <option [value]="p.clave">{{ p.descripcion }}</option>
+              <select [class.is-invalid]="invalido(puestoClave())" [ngModel]="puestoClave()" (ngModelChange)="cambiarNivel($event)" [disabled]="!puestoNombre()">
+                <option value="">Selecciona una opción</option>
+                @for (o of opcionesNivel(); track o.clave) {
+                  <option [value]="o.clave">{{ o.etiqueta }}</option>
                 }
               </select>
             </div>
@@ -120,14 +179,19 @@
           @if (visible('rango')) {
             <div class="campo">
               <label>Rango <span class="req">*</span></label>
-              <input type="number" min="1" [class.is-invalid]="invalido(rango())" [ngModel]="rango()" (ngModelChange)="rango.set($event)" />
+              <select [class.is-invalid]="invalido(rango())" [ngModel]="rango()" (ngModelChange)="rango.set($event)" [disabled]="nivel() == null">
+                <option [ngValue]="null">Selecciona una opción</option>
+                @for (r of opcionesRango(); track r) {
+                  <option [ngValue]="r">{{ r }}</option>
+                }
+              </select>
             </div>
           }
           @if (visible('tipCon')) {
             <div class="campo">
               <label>Forma de contratación @if (esAlta()) { <span class="req">*</span> }</label>
               <select [class.is-invalid]="esAlta() && invalido(tipCon())" [ngModel]="tipCon()" (ngModelChange)="tipCon.set($event)">
-                <option value="">Selecciona…</option>
+                <option value="">Selecciona una opción</option>
                 @for (f of fijos()?.formasContratacion; track f.clave) {
                   <option [value]="f.clave">{{ f.nombre }}</option>
                 }
@@ -138,6 +202,7 @@
             <div class="campo">
               <label>Tipo de nómina <span class="req">*</span></label>
               <select [ngModel]="tipoNomina()" (ngModelChange)="cambiarNomina($event)">
+                <option value="">Selecciona una opción</option>
                 @for (t of fijos()?.tiposNomina; track t.clave) {
                   <option [value]="t.clave">{{ t.nombre }}</option>
                 }
@@ -167,12 +232,12 @@
 
       <div class="card">
         <h2><span class="card__numero">4</span>Horario y banco</h2>
-        <div class="grid grid--4">
+        <div class="grid grid--3">
           @if (visible('horario')) {
             <div class="campo">
               <label>Horario</label>
               <select [ngModel]="horario()" (ngModelChange)="horario.set($event)">
-                <option value="">—</option>
+                <option value="">Selecciona una opción</option>
                 @for (h of fijos()?.horarios; track h.clave) {
                   <option [value]="h.clave">{{ h.nombre }}</option>
                 }
@@ -193,7 +258,7 @@
             <div class="campo">
               <label>Tarjeta de asistencia</label>
               <select [ngModel]="tarj()" (ngModelChange)="tarj.set($event === null ? null : +$event)">
-                <option [ngValue]="null">—</option>
+                <option [ngValue]="null">Selecciona una opción</option>
                 <option [ngValue]="1">SÍ</option>
                 <option [ngValue]="0">NO</option>
               </select>
@@ -214,33 +279,53 @@
           @if (muestraAnteriores() && percepcionesAnteriores() !== null) {
             <p class="hint">Percepciones anteriores: <strong>{{ percepcionesAnteriores() | number: '1.2-2' }}</strong></p>
           }
+          <div class="tabulador">
+            <p class="tabulador__titulo">
+              Percepciones del tabulador
+              @if (nivel() != null && rango()) {
+                <span>· Nivel <strong>{{ nivel() }}</strong>, rango <strong>{{ rango() }}</strong></span>
+              }
+            </p>
+            @if (opcionesTabulador().length) {
+              @for (o of opcionesTabulador(); track o.cve) {
+                <label class="tabulador__opcion">
+                  <input type="checkbox" [checked]="estaAgregada(o.cve)" (change)="alternarTabulador(o, $any($event.target).checked)" />
+                  <span class="tabulador__concepto"><small>{{ o.cve }}</small> {{ conceptoTabulador(o.cve) }}</span>
+                  <span class="tabulador__importe">{{ o.importe | number: '1.2-2' }}</span>
+                </label>
+              }
+            } @else {
+              <p class="hint">Elige el puesto, el nivel y el rango para ver las percepciones del tabulador.</p>
+            }
+          </div>
           <table class="percepciones">
             <thead>
-              <tr><th>Cve.</th><th>Concepto</th><th class="der">Importe</th><th></th></tr>
+              <tr><th>Cve.</th><th>Concepto</th><th>Partida</th><th class="der">Importe</th><th></th></tr>
             </thead>
             <tbody>
               @for (p of percepciones(); track $index) {
                 <tr>
                   <td>
                     <select [ngModel]="p.cve" (ngModelChange)="cambiarPercepcion($index, { cve: +$event })">
-                      <option [ngValue]="0">—</option>
-                      @for (c of catPercepciones(); track c.cve) {
-                        <option [ngValue]="c.cve">{{ c.cve }}</option>
+                      <option [ngValue]="0">Selecciona una opción</option>
+                      @for (c of clavesCapturables(); track c.cve) {
+                        <option [ngValue]="c.cve">{{ c.cve }} · {{ c.descCorta || c.descripcion }}</option>
                       }
                     </select>
                   </td>
                   <td>{{ descripcionDe(p.cve) || p.descripcion }}</td>
+                  <td class="partida">{{ partidaDe(p.cve) }}</td>
                   <td class="der">
                     <input type="number" step="0.01" min="0" [ngModel]="p.importe" (ngModelChange)="cambiarPercepcion($index, { importe: +$event })" />
                   </td>
                   <td><button type="button" class="quitar" aria-label="Quitar percepción" (click)="quitarPercepcion($index)">✕</button></td>
                 </tr>
               } @empty {
-                <tr><td colspan="4" class="vacio">Sin percepciones capturadas.</td></tr>
+                <tr><td colspan="5" class="vacio">Sin percepciones capturadas.</td></tr>
               }
             </tbody>
             <tfoot>
-              <tr><td colspan="2" class="der">Total percepción:</td><td class="der"><strong>{{ totalPercepciones() | number: '1.2-2' }}</strong></td><td></td></tr>
+              <tr><td colspan="3" class="der">Total percepción:</td><td class="der"><strong>{{ totalPercepciones() | number: '1.2-2' }}</strong></td><td></td></tr>
             </tfoot>
           </table>
           <div class="acciones-fila">
@@ -260,14 +345,42 @@
           <div class="campo campo--corto">
             <label>¿Documentación completa?</label>
             <select [ngModel]="documOk()" (ngModelChange)="documOk.set($event)">
+              <option value="" disabled>Selecciona una opción</option>
               <option value="S">SÍ</option>
               <option value="N">NO</option>
             </select>
           </div>
         }
       </div>
+      } @else {
+      <div class="card">
+        <h2><span class="card__numero">2</span>Personal a dar de baja</h2>
+        <p class="hint">Selecciona al personal de la plantilla. La baja se guarda en el concentrado temporal de la quincena para validarla y transferirla a nómina. El motivo es el subtipo elegido arriba.</p>
+        <app-seleccion-personal (seleccionChange)="seleccionBaja.set($event)" />
+        <div class="campo">
+          <label>Observaciones</label>
+          <textarea maxlength="250" [ngModel]="obsBaja()" (ngModelChange)="obsBaja.set($event)"></textarea>
+        </div>
+        <div class="acciones-fila">
+          <button type="button" class="btn btn--primary" [disabled]="guardandoBajas() || !seleccionBaja().length" (click)="guardarBajas()">
+            {{ guardandoBajas() ? 'Guardando…' : 'Guardar en concentrado (' + seleccionBaja().length + ')' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="card__numero">3</span>Concentrado de bajas de la quincena</h2>
+        @if (noQna()) {
+          <app-panel-bajas [anio]="anioBaja()" [noQna]="noQna()!" />
+        } @else {
+          <p class="hint">Elige la quincena para ver el concentrado.</p>
+        }
+      </div>
+      }
+      }
     </fieldset>
 
+    @if (tipoMov() && !esBaja()) {
     <div class="acciones">
       <p class="acciones__hint"><span class="req">*</span> Campos obligatorios</p>
       <div class="acciones__botones">
@@ -281,10 +394,10 @@
           </button>
         }
         @if (esAdmin && modoEdicion() && !transmitido()) {
-          <button type="button" class="btn btn--outline" (click)="transmitir()">Transmitir a nómina</button>
           <button type="button" class="btn btn--danger" (click)="eliminar()">Eliminar</button>
         }
       </div>
     </div>
+    }
   }
 </section>

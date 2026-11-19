@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ValidateIf,
   ArrayMaxSize,
   IsArray,
   IsIn,
@@ -58,10 +59,25 @@ export class GuardarMovimientoDto {
   @MaxLength(14)
   rfc?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  homoclave?: string;
+
   @IsString()
   @IsNotEmpty()
-  @MaxLength(60)
-  nombre: string;
+  @MaxLength(40)
+  nombres: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  primerApellido: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  segundoApellido?: string;
 
   @IsOptional()
   @IsIn(['M', 'F', 'H'])
@@ -71,15 +87,29 @@ export class GuardarMovimientoDto {
   @IsInt()
   adsAnt?: number;
 
+  /** Obligatoria salvo en licencia (que no captura adscripción, puesto ni rango). */
+  @ValidateIf((o: GuardarMovimientoDto) => o.tipoMov !== 'L')
   @IsInt()
   @Min(1)
-  adsAct: number;
+  dependenciaId: number;
 
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  direccionId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  departamentoId?: number;
+
+  @ValidateIf((o: GuardarMovimientoDto) => o.tipoMov !== 'L')
   @IsString()
   @IsNotEmpty()
   @MaxLength(10)
   puestoClave: string;
 
+  @ValidateIf((o: GuardarMovimientoDto) => o.tipoMov !== 'L')
   @IsInt()
   @Min(1)
   rango: number;

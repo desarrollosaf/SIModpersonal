@@ -10,7 +10,11 @@ export interface Percepcion {
 }
 
 export interface Movimiento {
+  /** Las bajas del concentrado no tienen folio (vacío) y vienen con esBaja. */
   folio: string;
+  esBaja?: boolean;
+  estatusBaja?: 'capturada' | 'validada' | 'transmitida';
+  id?: number;
   fecMov: string;
   noQna: number;
   tipoMov: string;
@@ -20,10 +24,15 @@ export interface Movimiento {
   subtipoMovNombre: string;
   curp: string;
   rfc: string | null;
+  homoclave: string | null;
   nombre: string;
+  nombres: string | null;
+  primerApellido: string | null;
+  segundoApellido: string | null;
   sexo: string | null;
-  adsAnt: number | null;
-  adsAct: number;
+  dependenciaId: number | null;
+  direccionId: number | null;
+  departamentoId: number | null;
   adscripcion: string | null;
   puestoClave: string;
   puesto: string | null;
@@ -56,10 +65,14 @@ export interface GuardarMovimiento {
   subtipoMov: string;
   curp: string;
   rfc?: string;
-  nombre: string;
+  homoclave?: string;
+  nombres: string;
+  primerApellido: string;
+  segundoApellido?: string;
   sexo?: string;
-  adsAnt?: number;
-  adsAct: number;
+  dependenciaId: number;
+  direccionId?: number;
+  departamentoId?: number;
   puestoClave: string;
   rango: number;
   tipCon?: string;

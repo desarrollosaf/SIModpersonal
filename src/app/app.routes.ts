@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, passwordChangedGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
@@ -8,8 +8,23 @@ export const routes: Routes = [
     loadChildren: () => import('./features/login/login.routes').then((m) => m.LOGIN_ROUTES),
   },
   {
-    path: '',
+    path: 'recuperar',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/cuenta/recuperar').then((m) => m.Recuperar),
+  },
+  {
+    path: 'restablecer',
+    loadComponent: () => import('./features/cuenta/restablecer').then((m) => m.Restablecer),
+  },
+  {
+    path: 'cambiar-contrasena',
     canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/cuenta/cambiar-contrasena').then((m) => m.CambiarContrasena),
+  },
+  {
+    path: '',
+    canActivate: [authGuard, passwordChangedGuard],
     loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'home' },
@@ -28,6 +43,16 @@ export const routes: Routes = [
         canActivate: [roleGuard(['administrador', 'capturista', 'consulta'])],
         loadComponent: () =>
           import('./features/consulta-periodo/consulta-periodo').then((m) => m.ConsultaPeriodo),
+      },
+      {
+        path: 'validacion',
+        canActivate: [roleGuard(['administrador', 'capturista', 'consulta'])],
+        loadComponent: () => import('./features/validacion/validacion').then((m) => m.Validacion),
+      },
+      {
+        path: 'bitacora',
+        canActivate: [roleGuard(['administrador', 'capturista', 'consulta'])],
+        loadComponent: () => import('./features/bajas/bitacora').then((m) => m.Bitacora),
       },
       {
         path: 'administracion/roles',

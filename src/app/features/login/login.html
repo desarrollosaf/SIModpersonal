@@ -7,7 +7,7 @@
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate autocomplete="off">
       <label class="field">
-        <span class="field__label">Usuario (correo)</span>
+        <span class="field__label">Usuario</span>
         <span class="field__control">
           <svg class="field__icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect x="3.5" y="5" width="17" height="14" rx="2.2" stroke="currentColor" stroke-width="1.6"/>
@@ -18,7 +18,7 @@
             type="text"
             formControlName="rfc"
             autocomplete="off"
-            placeholder="Ej. nom_usuario@congresoedomex.gob.mx"
+            placeholder="Ej. XXX710106"
             spellcheck="false"
             maxlength="100"
           />
@@ -68,6 +68,8 @@
           <span>Entrar</span>
         }
       </button>
+
+      <p class="forgot"><a routerLink="/recuperar">¿Olvidaste tu contraseña?</a></p>
     </form>
   </div>
 

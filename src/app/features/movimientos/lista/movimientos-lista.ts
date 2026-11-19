@@ -5,6 +5,7 @@ import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
 import { Movimiento, MovimientosService } from '../../../core/services/movimientos.service';
+import { QUINCENAS, quincenaActual } from '../../bajas/quincenas';
 import { Paginador } from '../../../shared/tarjetas/paginador';
 import { TablaMovimientos } from '../../../shared/tabla-movimientos/tabla-movimientos';
 
@@ -26,6 +27,9 @@ export class MovimientosLista implements OnDestroy {
   protected readonly busqueda = signal('');
   protected readonly tipoMov = signal('');
   protected readonly anio = signal(String(new Date().getFullYear()).slice(2));
+  protected readonly quincenas = QUINCENAS;
+  /** Por defecto se muestran los movimientos de la quincena en curso (0 = todas). */
+  protected readonly quincena = signal(quincenaActual());
   protected readonly puedeCapturar;
 
   private readonly busquedaTexto$ = new Subject<string>();
@@ -73,6 +77,9 @@ export class MovimientosLista implements OnDestroy {
     this.movimientos
       .listar({
         anio: this.anio() || undefined,
+        // Con texto de búsqueda se busca en todo el año; sin él, solo en la quincena elegida.
+        qnaInicial: this.busqueda().trim() || !this.quincena() ? undefined : this.quincena(),
+        qnaFinal: this.busqueda().trim() || !this.quincena() ? undefined : this.quincena(),
         tipoMov: this.tipoMov() || undefined,
         q: this.busqueda().trim() || undefined,
         page: this.pagina(),

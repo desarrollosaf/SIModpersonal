@@ -10,6 +10,7 @@ import {
   Op,
   QueryTypes,
   Sequelize,
+  Transaction,
   WhereOptions,
   col,
   fn,
@@ -19,12 +20,19 @@ import * as XLSX from 'xlsx';
 import { Movimiento } from '../database/models/movimiento.model';
 import { MovimientoPercepcion } from '../database/models/movimiento-percepcion.model';
 import { MovimientoBitacora } from '../database/models/movimiento-bitacora.model';
-import { CatAdscripcion } from '../database/models/cat-adscripcion.model';
+import { LoteNomina } from '../database/models/lote-nomina.model';
+import { MovimientoHistorico } from '../database/models/movimiento-historico.model';
+import { BitacoraMovimiento } from '../database/models/bitacora-movimiento.model';
+import { SUsuario } from '../database/models/s-usuario.model';
+import { TDependencia } from '../database/models/t-dependencia.model';
+import { TDireccion } from '../database/models/t-direccion.model';
+import { TDepartamento } from '../database/models/t-departamento.model';
 import { CatPuesto } from '../database/models/cat-puesto.model';
 import { CatPercepcion } from '../database/models/cat-percepcion.model';
 import { SubtipoMovimiento } from '../database/models/subtipo-movimiento.model';
 import { TipoMovimiento } from '../database/models/tipo-movimiento.model';
 import { EmpleadosService } from '../empleados/empleados.service';
+import { BajasService } from '../bajas/bajas.service';
 import {
   CVE_COMPENSACION,
   CVE_GRATIFICACION,
@@ -41,6 +49,9 @@ import { fechaHoyMexico } from '../common/fecha-mexico.util';
 import { GuardarMovimientoDto } from './dto/guardar-movimiento.dto';
 import { FiltroMovimientosDto } from './dto/filtro-movimientos.dto';
 
+/** Tipos que se eligen de la plantilla activa (saf.s_usuario): promoción, transferencia y licencia. */
+const PLANTILLA_ACTIVA = ['P', 'T', 'L'];
+
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
 @Injectable()
@@ -52,8 +63,15 @@ export class MovimientosService {
     private readonly percepciones: typeof MovimientoPercepcion,
     @InjectModel(MovimientoBitacora)
     private readonly bitacora: typeof MovimientoBitacora,
-    @InjectModel(CatAdscripcion)
-    private readonly adscripciones: typeof CatAdscripcion,
+    @InjectModel(MovimientoHistorico) private readonly historico: typeof MovimientoHistorico,
+    @InjectModel(BitacoraMovimiento) private readonly bitacoraGeneral: typeof BitacoraMovimiento,
+    @InjectModel(SUsuario, 'external') private readonly plantilla: typeof SUsuario,
+    @InjectModel(TDependencia, 'external')
+    private readonly dependencias: typeof TDependencia,
+    @InjectModel(TDireccion, 'external')
+    private readonly direcciones: typeof TDireccion,
+    @InjectModel(TDepartamento, 'external')
+    private readonly departamentos: typeof TDepartamento,
     @InjectModel(CatPuesto) private readonly puestos: typeof CatPuesto,
     @InjectModel(CatPercepcion)
     private readonly catPercepciones: typeof CatPercepcion,
@@ -61,6 +79,7 @@ export class MovimientosService {
     private readonly subtipos: typeof SubtipoMovimiento,
     @InjectModel(TipoMovimiento) private readonly tipos: typeof TipoMovimiento,
     private readonly empleados: EmpleadosService,
+    private readonly bajasSvc: BajasService,
   ) {}
 
   // ------------------------------------------------------------------ folios
@@ -107,9 +126,36 @@ export class MovimientosService {
     return { [Op.and]: condiciones };
   }
 
+  /** Las bajas del concentrado se muestran junto a los movimientos, salvo que el filtro las excluya. */
+  private incluyeBajas(f: FiltroMovimientosDto) {
+    return (!f.tipoMov || f.tipoMov === 'B') && !f.nomina;
+  }
+
   async listar(f: FiltroMovimientosDto) {
     const page = f.page ?? 1;
     const limit = f.limit ?? 25;
+
+    // Con bajas se mezclan las dos fuentes: de cada una se toman las primeras (página × tamaño) filas,
+    // se ordenan juntas por fecha y se corta la página.
+    const bajas = this.incluyeBajas(f) ? await this.bajasSvc.paraConsulta(f, page * limit) : null;
+    if (bajas && bajas.count > 0) {
+      const { rows: filas, count } = await this.movimientos.findAndCountAll({
+        where: this.construirWhere(f),
+        order: [['fecMov', 'DESC'], ['folio', 'DESC']],
+        limit: page * limit,
+      });
+      const movs = await this.enriquecer(filas);
+      const mezcla = [...movs, ...bajas.rows].sort(
+        (a, b) => b.fecMov.localeCompare(a.fecMov) || (b.folio ?? '').localeCompare(a.folio ?? ''),
+      );
+      return {
+        total: count + bajas.count,
+        page,
+        limit,
+        datos: mezcla.slice((page - 1) * limit, page * limit),
+      };
+    }
+
     const { rows, count } = await this.movimientos.findAndCountAll({
       where: this.construirWhere(f),
       order: [
@@ -149,33 +195,67 @@ export class MovimientosService {
     };
   }
 
+  /** La dependencia debe existir y la dirección / departamento deben pertenecer a la selección superior. */
+  private async validarAdscripcion(dto: GuardarMovimientoDto) {
+    const dependencia = await this.dependencias.findByPk(dto.dependenciaId);
+    if (!dependencia) throw new BadRequestException('Dependencia inexistente');
+
+    if (dto.direccionId != null) {
+      const direccion = await this.direcciones.findByPk(dto.direccionId);
+      if (!direccion || direccion.id_Dependencia !== dto.dependenciaId)
+        throw new BadRequestException('La dirección no pertenece a la dependencia');
+    }
+    if (dto.departamentoId != null) {
+      if (dto.direccionId == null)
+        throw new BadRequestException('Selecciona la dirección del departamento');
+      const departamento = await this.departamentos.findByPk(dto.departamentoId);
+      if (!departamento || departamento.id_Direccion !== dto.direccionId)
+        throw new BadRequestException('El departamento no pertenece a la dirección');
+    }
+  }
+
   /** Agrega descripciones de adscripción, puesto, tipo y subtipo para mostrar en pantalla. */
   private async enriquecer(rows: Movimiento[]) {
-    const [ads, pues, tipos, subs] = await Promise.all([
-      this.adscripciones.findAll(),
+    const ids = (campo: 'dependenciaId' | 'direccionId' | 'departamentoId') => [
+      ...new Set(rows.map((r) => r[campo]).filter((v): v is number => v != null)),
+    ];
+    const [deps, dirs, deptos, pues, tipos, subs] = await Promise.all([
+      this.dependencias.findAll({ where: { id_Dependencia: { [Op.in]: ids('dependenciaId') } } }),
+      this.direcciones.findAll({ where: { id_Direccion: { [Op.in]: ids('direccionId') } } }),
+      this.departamentos.findAll({ where: { id_Departamento: { [Op.in]: ids('departamentoId') } } }),
       this.puestos.findAll({
         where: {
-          clave: { [Op.in]: [...new Set(rows.map((r) => r.puestoClave))] },
+          clave: { [Op.in]: [...new Set(rows.map((r) => r.puestoClave).filter((c): c is string => !!c))] },
         },
       }),
       this.tipos.findAll(),
       this.subtipos.findAll(),
     ]);
-    const adsPor = new Map(ads.map((a) => [a.id, a.descripcion]));
+    const depPor = new Map(deps.map((d) => [d.id_Dependencia, d.Nombre]));
+    const dirPor = new Map(dirs.map((d) => [d.id_Direccion, d.nombre_completo || d.Nombre]));
+    const deptoPor = new Map(
+      deptos.map((d) => [d.id_Departamento, `${d.c_presup} - ${d.nombre_completo || d.Nombre}`]),
+    );
     const pPor = new Map(pues.map((p) => [p.clave, p]));
     const tPor = new Map(tipos.map((t) => [t.clave, t.nombre]));
     const sPor = new Map(subs.map((s) => [`${s.tipo}${s.clave}`, s.nombre]));
     return rows.map((r) => {
       const plano = r.get({ plain: true }) as Movimiento;
+      const dependencia = r.dependenciaId != null ? (depPor.get(r.dependenciaId) ?? null) : null;
+      const direccion = r.direccionId != null ? (dirPor.get(r.direccionId) ?? null) : null;
+      const departamento = r.departamentoId != null ? (deptoPor.get(r.departamentoId) ?? null) : null;
       return {
         ...plano,
         tipMov: `${r.tipoMov}${r.subtipoMov}`,
         tipoMovNombre: tPor.get(r.tipoMov) ?? r.tipoMov,
         subtipoMovNombre:
           sPor.get(`${r.tipoMov}${r.subtipoMov}`) ?? r.subtipoMov,
-        adscripcion: adsPor.get(r.adsAct) ?? null,
-        puesto: pPor.get(r.puestoClave)?.descripcion ?? null,
-        nivel: pPor.get(r.puestoClave)?.nivel ?? null,
+        dependencia,
+        direccion,
+        departamento,
+        adscripcion: [dependencia, direccion, departamento].filter(Boolean).join(' / ') || null,
+        puesto: pPor.get(r.puestoClave ?? '')?.descripcion ?? null,
+        nivel: pPor.get(r.puestoClave ?? '')?.nivel ?? null,
         transmitido: r.documOk === DOCUM_TRANSMITIDO,
       };
     });
@@ -184,8 +264,13 @@ export class MovimientosService {
   // --------------------------------------------------------------- escritura
 
   async crear(dto: GuardarMovimientoDto, rfcUsuario: string) {
-    const folio =
-      dto.folio ?? (await this.siguienteFolio(dto.fecMov.slice(2, 4))).folio;
+    const anioMov = dto.fecMov.slice(2, 4);
+    if (dto.folio && dto.folio.slice(4, 6) !== anioMov) {
+      throw new BadRequestException(
+        `El folio ${dto.folio} termina en ${dto.folio.slice(4, 6)}, pero la fecha del movimiento es del año ${anioMov}. Los dos últimos dígitos del folio son el año.`,
+      );
+    }
+    const folio = dto.folio ?? (await this.siguienteFolio(anioMov)).folio;
     if (await this.movimientos.findByPk(folio))
       throw new ConflictException(`El folio ${folio} ya existe`);
     const datos = await this.validarYNormalizar(dto);
@@ -234,7 +319,8 @@ export class MovimientosService {
 
     await this.sequelize.transaction(async (transaction) => {
       await actual.update(
-        { ...datos.campos, actualizadoPor: rfcUsuario },
+        // Si se modifica un movimiento ya validado, vuelve a captura para validarse otra vez.
+        { ...datos.campos, actualizadoPor: rfcUsuario, validadoPor: null, validadoAt: null },
         { transaction },
       );
       await this.percepciones.destroy({ where: { folio }, transaction });
@@ -258,6 +344,114 @@ export class MovimientosService {
       );
     });
     return this.obtener(folio);
+  }
+
+  // ------------------------------------------- validación y envío (los orquesta ValidacionService)
+
+  /** Movimientos de una quincena. El año sale de los dos últimos dígitos del folio. */
+  filasDeQuincena(anio: number, noQna: number) {
+    return this.movimientos.findAll({
+      where: {
+        [Op.and]: [sqlWhere(fn('substr', col('folio'), 5, 2), String(anio).slice(2)), { noQna }],
+      },
+      order: [['folio', 'ASC']],
+    });
+  }
+
+  /** Movimientos de cualquier quincena que todavía no se envían a nómina (capturados o validados). */
+  filasPendientes() {
+    return this.movimientos.findAll({
+      where: { documOk: { [Op.ne]: DOCUM_TRANSMITIDO } },
+      order: [['noQna', 'DESC'], ['folio', 'ASC']],
+    });
+  }
+
+  enriquecerFilas(rows: Movimiento[]) {
+    return this.enriquecer(rows);
+  }
+
+  /** Capturado = sin validar y sin transmitir. */
+  private capturadosTx(t: Transaction, anio: number, noQna: number) {
+    return this.movimientos.findAll({
+      where: {
+        [Op.and]: [
+          sqlWhere(fn('substr', col('folio'), 5, 2), String(anio).slice(2)),
+          { noQna, documOk: { [Op.ne]: DOCUM_TRANSMITIDO }, validadoAt: null },
+        ],
+      },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+  }
+
+  async pendientesTx(t: Transaction, anio: number, noQna: number): Promise<number> {
+    return (await this.capturadosTx(t, anio, noQna)).length;
+  }
+
+  /**
+   * Valida los movimientos capturados de la quincena. Solo se validan los que tienen la documentación
+   * completa (misma regla que exigía la transmisión); los demás se quedan en captura.
+   */
+  async validarTx(t: Transaction, anio: number, noQna: number, usuarioRfc: string) {
+    const filas = await this.capturadosTx(t, anio, noQna);
+    const ahora = new Date();
+    let validadas = 0;
+    for (const m of filas) {
+      if (m.documOk !== 'S') continue;
+      await m.update({ validadoPor: usuarioRfc, validadoAt: ahora }, { transaction: t });
+      await this.bitacora.create({ folio: m.folio, accion: 'VALIDAR', usuarioRfc }, { transaction: t });
+      await this.bitacoraGeneral.create(
+        {
+          tipoMov: m.tipoMov, folio: m.folio, accion: 'validacion', estatusAnterior: 'capturada', estatusNuevo: 'validada',
+          anio, noQna, rfcPersonal: m.rfc ?? m.curp, usuarioRfc,
+        },
+        { transaction: t },
+      );
+      validadas++;
+    }
+    return { validadas, incompletas: filas.length - validadas };
+  }
+
+  /** Marca como transmitidos (DOCUM_OK = 'T') los movimientos validados, los copia al histórico y los liga al lote. */
+  async transferirTx(t: Transaction, lote: LoteNomina, anio: number, noQna: number, usuarioRfc: string): Promise<number> {
+    const filas = await this.movimientos.findAll({
+      where: {
+        [Op.and]: [
+          sqlWhere(fn('substr', col('folio'), 5, 2), String(anio).slice(2)),
+          { noQna, documOk: { [Op.ne]: DOCUM_TRANSMITIDO }, validadoAt: { [Op.ne]: null } },
+        ],
+      },
+      include: [{ model: MovimientoPercepcion, separate: true, order: [['orden', 'ASC']] }],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    const ahora = new Date();
+    for (const m of filas) {
+      const copia = m.get({ plain: true });
+      await m.update(
+        { documOk: DOCUM_TRANSMITIDO, transmitidoPor: usuarioRfc, transmitidoAt: ahora, loteId: lote.id, actualizadoPor: usuarioRfc },
+        { transaction: t },
+      );
+      await this.historico.create(
+        {
+          tipoMov: m.tipoMov, folio: m.folio, loteId: lote.id, anio, noQna, fechaMov: m.fecMov,
+          rfc: m.rfc ?? m.curp, curp: m.curp, nombre: m.nombre, puesto: m.puestoClave,
+          dependenciaId: m.dependenciaId, direccionId: m.direccionId, departamentoId: m.departamentoId,
+          subtipo: m.subtipoMov, creadoPor: m.creadoPor, validadoPor: m.validadoPor, transmitidoPor: usuarioRfc,
+          datos: copia,
+        },
+        { transaction: t },
+      );
+      await this.bitacora.create({ folio: m.folio, accion: 'TRANSMITIR', usuarioRfc }, { transaction: t });
+      await this.bitacoraGeneral.create(
+        {
+          tipoMov: m.tipoMov, folio: m.folio, loteId: lote.id, accion: 'transferencia', estatusAnterior: 'validada',
+          estatusNuevo: 'transmitida', anio, noQna, rfcPersonal: m.rfc ?? m.curp, usuarioRfc,
+        },
+        { transaction: t },
+      );
+    }
+    return filas.length;
   }
 
   /** Marca el movimiento como transmitido a nómina (DOCUM_OK = 'T'): ya no se puede modificar. */
@@ -354,13 +548,27 @@ export class MovimientosService {
           'El tipo de contrato no puede ir en blanco',
         );
     } else if (!empleado) {
-      throw new BadRequestException('Esta CURP no pertenece a ningún empleado');
+      // Una promoción se elige de la plantilla activa (saf.s_usuario, Estado = 1); los demás tipos siguen
+      // exigiendo que la CURP esté en nómina.
+      const enPlantilla =
+        PLANTILLA_ACTIVA.includes(dto.tipoMov)
+          ? await this.plantilla.findOne({
+              where: { Estado: 1, [Op.and]: [sqlWhere(fn('substr', col('curp'), 1, 10), curp.slice(0, 10))] },
+            })
+          : null;
+      if (!enPlantilla) {
+        throw new BadRequestException(
+          PLANTILLA_ACTIVA.includes(dto.tipoMov)
+            ? 'Esta CURP no pertenece a ninguna persona activa de la plantilla'
+            : 'Esta CURP no pertenece a ningún empleado',
+        );
+      }
     }
 
-    if (!(await this.adscripciones.findByPk(dto.adsAct)))
-      throw new BadRequestException('Adscripción inexistente');
-    const puesto = await this.puestos.findByPk(dto.puestoClave);
-    if (!puesto) throw new BadRequestException('Puesto inexistente');
+    // La licencia no captura adscripción, puesto ni rango; los demás tipos sí.
+    if (dto.dependenciaId) await this.validarAdscripcion(dto);
+    const puesto = dto.puestoClave ? await this.puestos.findByPk(dto.puestoClave) : null;
+    if (dto.tipoMov !== 'L' && !puesto) throw new BadRequestException('Puesto inexistente');
 
     if (dto.tipoMov === 'B' && !dto.fTerm) {
       throw new BadRequestException(
@@ -375,7 +583,7 @@ export class MovimientosService {
 
     const percepciones = await this.validarPercepciones(
       dto,
-      puesto.nivel,
+      puesto?.nivel ?? 0,
       esAlta,
     );
 
@@ -384,6 +592,18 @@ export class MovimientosService {
       dto.tipoMov === 'P' || dto.tipoMov === 'T'
         ? await this.empleados.percepcionesAnteriores(curp)
         : null;
+
+    const nombres = dto.nombres.trim().toUpperCase();
+    const primerApellido = dto.primerApellido.trim().toUpperCase();
+    const segundoApellido = dto.segundoApellido?.trim().toUpperCase() || null;
+    const nombreCompleto = [primerApellido, segundoApellido, nombres]
+      .filter(Boolean)
+      .join(' ');
+    if (nombreCompleto.length > 60) {
+      throw new BadRequestException(
+        'El nombre completo (apellidos y nombres) no puede pasar de 60 caracteres',
+      );
+    }
 
     return {
       percepciones,
@@ -395,12 +615,19 @@ export class MovimientosService {
         subtipoMov: subtipo,
         curp,
         rfc: dto.rfc?.trim().toUpperCase() || empleado?.rfc || null,
-        nombre: dto.nombre.trim().toUpperCase(),
+        homoclave: dto.homoclave?.trim().toUpperCase() || null,
+        nombre: nombreCompleto,
+        nombres,
+        primerApellido,
+        segundoApellido,
         sexo: dto.sexo ?? null,
-        adsAnt: dto.adsAnt ?? empleado?.adscripcionId ?? null,
-        adsAct: dto.adsAct,
-        puestoClave: dto.puestoClave,
-        rango: dto.rango,
+        adsAnt: null,
+        adsAct: null,
+        dependenciaId: dto.dependenciaId || null,
+        direccionId: dto.direccionId ?? null,
+        departamentoId: dto.departamentoId ?? null,
+        puestoClave: dto.puestoClave || null,
+        rango: dto.rango || null,
         percepA: anteriores,
         tipCon: dto.tipCon ?? null,
         tipoNomina: dto.tipoNomina,
@@ -445,6 +672,7 @@ export class MovimientosService {
       const cat = await this.catPercepciones.findAll({
         where: {
           tipoNomina: dto.tipoNomina,
+          activo: true,
           cve: { [Op.in]: lineas.map((l) => l.cve) },
         },
       });
@@ -516,7 +744,7 @@ export class MovimientosService {
         TIPO: d.tipoMovNombre,
         SUBTIPO: d.subtipoMovNombre,
         CURP: d.curp,
-        RFC: d.rfc ?? '',
+        RFC: `${d.rfc ?? ''}${(mov.homoclave ?? '')}`,
         NOMBRE: d.nombre,
         ADSCRIPCION: d.adscripcion ?? '',
         PUESTO: d.puesto ?? '',
@@ -537,6 +765,35 @@ export class MovimientosService {
         OBSERVACIONES: mov.obs ?? '',
       };
     });
+
+    // Bajas del concentrado (sin folio ni percepciones).
+    if (this.incluyeBajas(f)) {
+      const bajas = await this.bajasSvc.paraConsulta(f, 100000);
+      for (const b of bajas.rows) {
+        filas.push({
+          FOLIO: '',
+          FECHA: b.fecMov,
+          QNA: b.noQna,
+          TIPO: b.tipoMovNombre,
+          SUBTIPO: b.subtipoMovNombre,
+          CURP: b.curp,
+          RFC: b.rfc ?? '',
+          NOMBRE: b.nombre,
+          ADSCRIPCION: b.adscripcion ?? '',
+          PUESTO: b.puesto ?? '',
+          NIVEL: '',
+          RANGO: '',
+          CONTRATO: '',
+          NOMINA: '',
+          'A PARTIR': '',
+          'F. TERMINO': b.fecMov,
+          HORARIO: '',
+          'TOTAL PERCEPCIONES': 0,
+          DOCUMENTACION: b.estatusBaja === 'transmitida' ? 'TRANSMITIDO' : `BAJA ${String(b.estatusBaja).toUpperCase()}`,
+          OBSERVACIONES: '',
+        } as unknown as (typeof filas)[number]);
+      }
+    }
 
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(

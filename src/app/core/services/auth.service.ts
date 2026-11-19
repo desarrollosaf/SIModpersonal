@@ -38,6 +38,29 @@ export class AuthService {
     );
   }
 
+  recuperar(usuario: string): Observable<{ mensaje: string }> {
+    return this.http.post<{ mensaje: string }>(`${environment.apiUrl}/auth/recuperar`, { usuario });
+  }
+
+  restablecer(token: string, password: string): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${environment.apiUrl}/auth/restablecer`, { token, password });
+  }
+
+  cambiarContrasena(actual: string, nueva: string): Observable<{ ok: boolean }> {
+    return this.http
+      .post<{ ok: boolean }>(`${environment.apiUrl}/auth/cambiar-contrasena`, { actual, nueva })
+      .pipe(
+        tap(() => {
+          const user = this.currentUser();
+          if (user) {
+            const actualizado = { ...user, cambio_contrasena: true };
+            localStorage.setItem(USER_KEY, JSON.stringify(actualizado));
+            this.currentUser.set(actualizado);
+          }
+        }),
+      );
+  }
+
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

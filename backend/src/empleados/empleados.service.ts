@@ -5,10 +5,9 @@ import { Empleado } from '../database/models/empleado.model';
 import { Horario } from '../database/models/horario.model';
 import { PagoDescuento } from '../database/models/pago-descuento.model';
 import { CatPuesto } from '../database/models/cat-puesto.model';
-import { CatAdscripcion } from '../database/models/cat-adscripcion.model';
+import { SUsuario } from '../database/models/s-usuario.model';
 import { CatPercepcion } from '../database/models/cat-percepcion.model';
-import { TablaNivel } from '../database/models/tabla-nivel.model';
-import { TablaRango } from '../database/models/tabla-rango.model';
+import { TabuladorService } from '../tabulador/tabulador.service';
 import {
   CVES_PERCEPCIONES_ANTERIORES,
   CVES_RESCATE,
@@ -36,12 +35,11 @@ export class EmpleadosService {
     @InjectModel(Horario) private readonly horarios: typeof Horario,
     @InjectModel(PagoDescuento) private readonly pagos: typeof PagoDescuento,
     @InjectModel(CatPuesto) private readonly puestos: typeof CatPuesto,
-    @InjectModel(CatAdscripcion)
-    private readonly adscripciones: typeof CatAdscripcion,
+    @InjectModel(SUsuario, 'external')
+    private readonly sUsuarios: typeof SUsuario,
     @InjectModel(CatPercepcion)
     private readonly catPercepciones: typeof CatPercepcion,
-    @InjectModel(TablaNivel) private readonly niveles: typeof TablaNivel,
-    @InjectModel(TablaRango) private readonly rangos: typeof TablaRango,
+    private readonly tabulador: TabuladorService,
   ) {}
 
   /** El sistema original identifica al empleado por los primeros 10 caracteres de la CURP. */
@@ -81,15 +79,14 @@ export class EmpleadosService {
     if (!emp)
       throw new NotFoundException('Esta CURP no pertenece a ningún empleado');
 
-    const [horario, puesto, adscripcion, percepcionesVigentes] =
+    const [horario, puesto, personal, percepcionesVigentes] =
       await Promise.all([
         this.horarios.findOne({
           where: sqlWhere(fn('substr', col('curp'), 1, 10), primeros10(curp)),
         }),
         emp.puestoClave ? this.puestos.findByPk(emp.puestoClave) : null,
-        emp.adscripcionId != null
-          ? this.adscripciones.findByPk(emp.adscripcionId)
-          : null,
+        // Dependencia / dirección / departamento del empleado, según el catálogo de personal (saf).
+        this.sUsuarios.findOne({ where: { curp: emp.curp } }),
         this.percepcionesVigentes(curp),
       ]);
 
@@ -97,8 +94,9 @@ export class EmpleadosService {
       curp: emp.curp,
       rfc: emp.rfc,
       nombre: emp.nombre,
-      adscripcionId: emp.adscripcionId,
-      adscripcion: adscripcion?.descripcion ?? null,
+      dependenciaId: personal?.id_Dependencia ?? null,
+      direccionId: personal?.id_Direccion ?? null,
+      departamentoId: personal?.id_Departamento ?? null,
       puestoClave: emp.puestoClave,
       puesto: puesto?.descripcion ?? null,
       nivel: puesto?.nivel ?? null,
@@ -185,19 +183,7 @@ export class EmpleadosService {
 
   /** Importes de tabulador para un nivel/rango (Imp-Nivel, Imp-Rang[rango], Imp-Comp[rango]). */
   async importesTabulador(nivel: number, rango: number) {
-    const [nivelFila, rangoFila] = await Promise.all([
-      this.niveles.findByPk(nivel),
-      this.rangos.findOne({ where: { nivel, rango } }),
-    ]);
-    if (!nivelFila)
-      throw new NotFoundException(
-        `El nivel ${nivel} no existe en el tabulador`,
-      );
-    return {
-      impNivel: Number(nivelFila.imp_nivel),
-      impRango: Number(rangoFila?.imp_rango ?? 0),
-      impComp: Number(rangoFila?.imp_comp ?? 0),
-    };
+    return this.tabulador.importes(nivel, rango);
   }
 
   /** Agrega la descripción de cada clave según el catálogo de la nómina. */
@@ -207,7 +193,7 @@ export class EmpleadosService {
   ): Promise<LineaPercepcion[]> {
     if (!lineas.length) return lineas;
     const cat = await this.catPercepciones.findAll({
-      where: { cve: { [Op.in]: lineas.map((l) => l.cve) }, tipoNomina },
+      where: { cve: { [Op.in]: lineas.map((l) => l.cve) }, tipoNomina, activo: true },
     });
     const porCve = new Map(cat.map((c) => [c.cve, c.descripcion]));
     return lineas.map((l) => ({

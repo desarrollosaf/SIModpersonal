@@ -1,0 +1,102 @@
+<section class="page">
+  <header class="page__header">
+    <h1>Validación y envío a nómina</h1>
+    <p>Concentrado por quincena de altas, bajas y demás movimientos. Primero se validan y después se envían todos juntos a nómina.</p>
+  </header>
+
+  <div class="card">
+    <div class="filtros filtros--barra">
+      @if (vista() === 'quincena') {
+        <label class="campo">
+          <span>Año</span>
+          <input type="number" min="2000" max="2100" [ngModel]="anio()" (ngModelChange)="anio.set(+$event); cargar()" />
+        </label>
+        <label class="campo campo--ancho">
+          <span>Quincena</span>
+          <select [ngModel]="noQna()" (ngModelChange)="noQna.set(+$event); cargar()">
+            @for (q of quincenas; track q.numero) {
+              <option [ngValue]="q.numero">{{ q.etiqueta }}</option>
+            }
+          </select>
+        </label>
+      } @else {
+        <p class="hint">Mostrando todo lo que falta por enviar a nómina, de todas las quincenas.</p>
+      }
+      <button type="button" class="btn btn--outline btn-pendientes" [class.activo]="vista() === 'pendientes'" (click)="alternarPendientes()">
+        Movimientos pendientes por enviar ({{ totalPendientes() }})
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="encabezado">
+      <h2>{{ vista() === 'pendientes' ? 'Pendientes por enviar (todas las quincenas)' : 'Movimientos de la quincena' }}</h2>
+      <div class="chips">
+        <span class="chip chip--capturada">Capturados {{ resumen().capturada }}</span>
+        <span class="chip chip--validada">Validados {{ resumen().validada }}</span>
+        <span class="chip chip--transmitida">Enviados {{ resumen().transmitida }}</span>
+        <span class="chip chip--cancelada">Cancelados {{ resumen().cancelada }}</span>
+      </div>
+    </div>
+
+    @if (datosVista()?.filas?.length) {
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead>
+            <tr><th>Tipo</th>@if (vista() === 'pendientes') { <th>Quincena</th> }<th>Folio</th><th>RFC / CURP</th><th>Nombre</th><th>Puesto</th><th>Adscripción</th><th>Motivo / subtipo</th><th>Fecha</th><th>Doc.</th><th>Estatus</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (f of datosVista()!.filas; track f.clave) {
+              <tr [class.cancelada]="f.estatus === 'cancelada'">
+                <td><span class="tipo tipo--{{ f.tipoMov }}">{{ f.tipo }}</span></td>
+                @if (vista() === 'pendientes') { <td>Q{{ f.noQna }}/{{ f.anio }}</td> }
+                <td>{{ f.folio || '—' }}</td>
+                <td>{{ f.rfc || f.curp }}</td>
+                <td>{{ f.nombre }}</td>
+                <td>{{ f.puesto }}</td>
+                <td class="chica">{{ f.adscripcion }}</td>
+                <td>{{ f.motivo }}</td>
+                <td>{{ f.fecha }}</td>
+                <td>
+                  @if (f.documOk === 'S') { <span class="doc doc--ok" title="Documentación completa">✔</span> }
+                  @else if (f.documOk === 'N') { <span class="doc doc--no" title="Documentación incompleta">✖</span> }
+                  @else { — }
+                </td>
+                <td><span class="chip chip--{{ f.estatus }}">{{ f.estatus === 'transmitida' ? 'enviada' : f.estatus }}</span></td>
+                <td class="acciones-celda">
+                  @if (vista() === 'pendientes') {
+                    <a class="abrir" href="#" (click)="$event.preventDefault(); irAQuincena(f)">Ir a la quincena</a>
+                  } @else if (f.origen === 'movimiento') {
+                    <a class="abrir" [routerLink]="['/movimientos', f.folio]">Abrir</a>
+                  } @else if (puedeCancelar && (f.estatus === 'capturada' || f.estatus === 'validada')) {
+                    <button type="button" class="quitar" aria-label="Cancelar baja" (click)="cancelarBaja(f)">✕</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="vacio">{{ cargando() ? 'Cargando…' : (vista() === 'pendientes' ? 'No hay movimientos pendientes por enviar.' : 'No hay movimientos en esta quincena.') }}</p>
+    }
+
+    @if (vista() === 'pendientes') {
+      @if (incompletas() > 0) {
+        <p class="hint">{{ incompletas() }} movimiento(s) tienen la documentación incompleta: no se pueden validar hasta completarla (ábrelo y marca "¿Documentación completa?").</p>
+      }
+
+      @if (esAdmin) {
+        <div class="acciones">
+          <button type="button" class="btn btn--outline" [disabled]="trabajando() || !resumen().capturada" (click)="validar()">Validar movimientos</button>
+          <button type="button" class="btn btn--primary" [disabled]="trabajando() || !puedeEnviar()" (click)="enviar()">Enviar a nómina</button>
+        </div>
+        @if (resumen().capturada > 0) {
+          <p class="hint">El botón "Enviar a nómina" se habilita cuando todo lo pendiente está validado.</p>
+        }
+      } @else if (resumen().capturada > 0) {
+        <p class="hint">Los movimientos capturados quedan pendientes de validación por el administrador.</p>
+      }
+    }
+  </div>
+</section>
